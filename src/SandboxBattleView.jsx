@@ -236,16 +236,35 @@ export const generateHardpointObjectives = (equippedWeapons, weaponsLevels, hand
 };
 
 // ============================================================================
-// 3. COMPONENTE SPRITE A 2 LIVELLI (BASE FISSA + BRACCIO ROTANTE CON RINCULO)
+// 3. COMPONENTE SPRITE A 2 LIVELLI (BASE IMMOBILE + BRACCIO BRANDIEGGIABILE)
 // ============================================================================
-function WeaponSlotVisual({ weapon, isSelected, isArmed, isFiring, isEnemy = false }) {
+function WeaponSlotVisual({ weapon, isSelected, isArmed, isEnemy = false }) {
   const isOrbital = weapon.id === 'wp_orbital_cannon';
 
-  const spriteSrc = isEnemy
-    ? '/laserfronte.png'
-    : (isOrbital ? '/laserretro.png' : null);
+  // Se non è il cannone orbitale o il nemico, mostra l'icona tattica dell'arma
+  if (!isEnemy && !isOrbital) {
+    return (
+      <div style={{
+        width: '46px',
+        height: '62px',
+        borderRadius: '6px',
+        background: 'radial-gradient(circle, #1e293b 0%, #090d16 100%)',
+        border: `1.5px solid ${weapon.color || '#00f2fe'}`,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '1.4rem'
+      }}>
+        {weapon.fxType === 'gatling_rotary' ? '⚙️' : (weapon.fxType === 'plasma_arrow' ? '🏹' : '⚡')}
+      </div>
+    );
+  }
 
-  const fallbackSprite = isEnemy ? '/assets/weapons/laserfronte.png' : '/assets/weapons/laserretro.png';
+  // File sorgente: il giocatore usa i due file separati in public/
+  const baseSrc = isEnemy ? '/laserfronte.png' : '/laserbase.png';
+  const armSrc = isEnemy ? '/laserfronte.png' : '/lasercannone.png';
+
   const armId = isEnemy ? 'turret-arm-enemy' : `turret-arm-player-${weapon.slotIndex}`;
 
   return (
@@ -260,68 +279,61 @@ function WeaponSlotVisual({ weapon, isSelected, isArmed, isFiring, isEnemy = fal
         justifyContent: 'center'
       }}
     >
-      {spriteSrc ? (
-        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-          {/* LIVELLO 1: BASE E ZAMPE (IMMOBILI A TERRA A 0°) */}
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              clipPath: isEnemy
-                ? 'polygon(0% 46%, 100% 46%, 100% 100%, 0% 100%)'
-                : 'polygon(0% 48%, 100% 48%, 100% 100%, 0% 100%)',
-              zIndex: 1,
-              pointerEvents: 'none'
+      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+        {/* LIVELLO 1: BASE E ZAMPE (IMMOBILI A TERRA A 0°) */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 1,
+            pointerEvents: 'none',
+            clipPath: isEnemy ? 'polygon(0% 46%, 100% 46%, 100% 100%, 0% 100%)' : 'none'
+          }}
+        >
+          <img
+            src={baseSrc}
+            alt="Base Torretta"
+            onError={(e) => {
+              if (!e.target.dataset.tried) {
+                e.target.dataset.tried = '1';
+                e.target.src = isEnemy ? '/laserfronte.png' : '/laserretro.png';
+              }
             }}
-          >
-            <img
-              src={spriteSrc}
-              alt="Base Torretta"
-              onError={(e) => { e.target.src = fallbackSprite; }}
-              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-            />
-          </div>
+            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+          />
+        </div>
 
-          {/* LIVELLO 2: BRACCIO E CANNONE (RUOTA IN TEMPO REALE CON IL LASER) */}
-          <div
-            id={armId}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              clipPath: isEnemy
-                ? 'polygon(0% 0%, 100% 0%, 100% 68%, 0% 68%)'
-                : 'polygon(0% 0%, 100% 0%, 100% 62%, 0% 62%)',
-              // Perno centrale del cannone sopra la base
-              transformOrigin: isEnemy ? '50% 48%' : '50% 58%',
-              zIndex: 2,
-              willChange: 'transform',
-              pointerEvents: 'none'
+        {/* LIVELLO 2: BRACCIO E CANNONE (RUOTA E RINCULA CON IL LASER) */}
+        <div
+          id={armId}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 2,
+            willChange: 'transform',
+            pointerEvents: 'none',
+            // Perno di rotazione meccanico calibrato
+            transformOrigin: isEnemy ? '50% 48%' : '50% 64%',
+            clipPath: isEnemy ? 'polygon(0% 0%, 100% 0%, 100% 68%, 0% 68%)' : 'none'
+          }}
+        >
+          <img
+            src={armSrc}
+            alt="Cannone Brandeggiabile"
+            onError={(e) => {
+              if (!e.target.dataset.tried) {
+                e.target.dataset.tried = '1';
+                // Fallback in caso di differente battitura del nome
+                e.target.src = '/lasercannore.png';
+              } else if (e.target.dataset.tried === '1') {
+                e.target.dataset.tried = '2';
+                e.target.src = isEnemy ? '/laserfronte.png' : '/laserretro.png';
+              }
             }}
-          >
-            <img
-              src={spriteSrc}
-              alt="Cannone Brandeggiabile"
-              onError={(e) => { e.target.src = fallbackSprite; }}
-              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-            />
-          </div>
+            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+          />
         </div>
-      ) : (
-        <div style={{
-          width: '46px',
-          height: '62px',
-          borderRadius: '6px',
-          background: 'radial-gradient(circle, #1e293b 0%, #090d16 100%)',
-          border: `1.5px solid ${weapon.color || '#00f2fe'}`,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '1.4rem'
-        }}>
-          {weapon.fxType === 'gatling_rotary' ? '⚙️' : (weapon.fxType === 'plasma_arrow' ? '🏹' : '⚡')}
-        </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -482,7 +494,6 @@ function WeaponSlotVisual({ weapon, isSelected, isArmed, isFiring, isEnemy = fal
       filter: drop-shadow(0 0 8px rgba(0, 242, 254, 0.45));
     }
 
-    /* CAMPO CENTRALE 3D E RAMPA */
     .battle-viewport-classic .trapezoid-ramp-hub {
       position: relative;
       width: 100%;
@@ -1083,7 +1094,7 @@ export default function SandboxBattleView({
       ? document.getElementById('classicEnemyHpDock')
       : document.getElementById('classicPlayerHpDock');
 
-    // Seleziona ESCLUSIVAMENTE il nodo del braccio/cannone da muovere
+    // Seleziona ESCLUSIVAMENTE il nodo del braccio/cannone mobile
     const armNode = document.getElementById(isPlayer ? 'turret-arm-player-3' : 'turret-arm-enemy');
 
     if (!layer || !targetHpDock || !armNode) {
@@ -1101,15 +1112,15 @@ export default function SandboxBattleView({
     const hpRect = targetHpDock.getBoundingClientRect();
     const armRect = armNode.getBoundingClientRect();
 
-    // Perno meccanico attorno a cui ruota solo il braccio
+    // Perno meccanico calibrato
     const pivotX = armRect.left + armRect.width * 0.5;
     const pivotY = isPlayer
-      ? (armRect.top + armRect.height * 0.58)
+      ? (armRect.top + armRect.height * 0.64)
       : (armRect.top + armRect.height * 0.48);
 
-    // Lunghezza utile dal perno alla volata della canna
+    // Lunghezza utile fino alla volata
     const barrelLength = isPlayer
-      ? (armRect.height * 0.54)
+      ? (armRect.height * 0.58)
       : (armRect.height * 0.26);
 
     const targetY = hpRect.top + hpRect.height / 2;
@@ -1133,7 +1144,7 @@ export default function SandboxBattleView({
       ? document.querySelector('.boss-hp-3d')
       : document.querySelector('.player-hp-3d');
 
-    // FASCIO LASER LINEARE SOTTILE (NON UN TUBO DI 40PX)
+    // FASCIO LASER LINEARE SOTTILE
     const svgBeam = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svgBeam.style.position = 'fixed';
     svgBeam.style.inset = '0';
@@ -1159,7 +1170,7 @@ export default function SandboxBattleView({
     beamBody.setAttribute('stroke-linecap', 'round');
     svgBeam.appendChild(beamBody);
 
-    // 3. Anima incandescente a temperatura solare (lama da 1.8px)
+    // 3. Anima incandescente (lama da 1.8px)
     const beamCore = document.createElementNS('http://www.w3.org/2000/svg', 'line');
     beamCore.setAttribute('stroke', '#ffffff');
     beamCore.setAttribute('stroke-width', '1.8');
@@ -1195,7 +1206,6 @@ export default function SandboxBattleView({
     const duration = 1300;
     const startTime = performance.now();
 
-    // Rimuove transizioni CSS residue per consentire il brandeggio immediato a 60 FPS
     armNode.style.transition = 'none';
 
     const createSparks = (x, y, color) => {
@@ -1225,7 +1235,7 @@ export default function SandboxBattleView({
       const curHp = startHp - (startHp - targetHp) * progress;
       const curRatio = Math.max(0, Math.min(1, curHp / totalMax));
 
-      // CALCOLO TRIGONOMETRICO ANGOLO DI PUNTAMENTO (BRANDEGGIO REALE DEL SOLO BRACCIO)
+      // CALCOLO TRIGONOMETRICO ANGOLO DI PUNTAMENTO (BRANDEGGIO DEL SOLO BRACCIO)
       const dx = curCutX - pivotX;
       const dy = targetY - pivotY;
 
@@ -1387,7 +1397,6 @@ export default function SandboxBattleView({
   const isItem2Usable = turn === 'player1' && !isItem2Used && !hasUsedEpicItemThisTurn;
 
   const topPlayerDiscard = playerDiscard && playerDiscard.length > 0 ? playerDiscard[playerDiscard.length - 1] : null;
-  const topAiDiscardCard = isRealPvP ? aiDiscardTop : (aiDiscard && aiDiscard.length > 0 ? aiDiscard[aiDiscard.length - 1] : null);
 
   const enemyName = isPvP
     ? (pvpMeta?.opponent?.nickname || 'AVVERSARIO')
@@ -1402,7 +1411,7 @@ export default function SandboxBattleView({
 
       <div className="battle-viewport-tris battle-viewport-classic" style={{ transform: `scale(${scale})` }}>
 
-        {/* 1. PIANO SUPERIORE (AVVERSARIO CON laserfronte.png) */}
+        {/* 1. PIANO SUPERIORE (AVVERSARIO) */}
         <div className="enemy-mega-plane">
           <div className="enemy-plane-backdrop">
             <div className="tactical-grid-overlay"></div>
@@ -1428,7 +1437,7 @@ export default function SandboxBattleView({
             </div>
           </div>
 
-          {/* TORRETTA DIFENSIVA NEMICA (laserfronte.png A DUE LAYER: BASE FISSA + BRACCIO MOBILE) */}
+          {/* TORRETTA DIFENSIVA NEMICA */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -1443,7 +1452,6 @@ export default function SandboxBattleView({
                 weapon={{ id: 'wp_orbital_cannon', name: 'Raggio Orbitale Nemico', slotIndex: 'enemy', color: '#f43f5e' }}
                 isSelected={false}
                 isArmed={true}
-                isFiring={false}
                 isEnemy={true}
               />
               <span style={{
@@ -1530,7 +1538,7 @@ export default function SandboxBattleView({
           ))}
         </div>
 
-        {/* 3. RAMPA CENTRALE: LE 4 ARMI (CON laserretro.png SULLO SLOT RAGGIO ORBITALE) */}
+        {/* 3. RAMPA CENTRALE: LE 4 ARMI CON laserbase.png e lasercannone.png SULLO SLOT ORBITALE */}
         <div className="trapezoid-ramp-hub">
           <div className="trapezoid-ramp-surface">
             <div className="trapezoid-grid-lines"></div>
@@ -1538,7 +1546,7 @@ export default function SandboxBattleView({
 
           <div style={{ position: 'relative', zIndex: 5, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             
-            {/* BARRA TATTICA DI TEST RAPIDO AL PRIMO TURNO */}
+            {/* PULSANTI TATTICI DI TEST RAPIDO */}
             <div className="tactical-test-controls-bar">
               <button
                 type="button"
@@ -1570,7 +1578,6 @@ export default function SandboxBattleView({
                 const isArmed = smartTargetInfo?.isExactMatch && smartTargetInfo?.matchedIndex === oIdx;
                 const isPattern = hp.type === 'poker';
                 const themeColor = hp.color || '#00f2fe';
-                const isCurrentlyFiring = firingSlotIdx === oIdx;
 
                 return (
                   <div
@@ -1615,7 +1622,6 @@ export default function SandboxBattleView({
                       weapon={hp}
                       isSelected={isSelected}
                       isArmed={isArmed}
-                      isFiring={isCurrentlyFiring}
                       isEnemy={false}
                     />
 
@@ -1908,7 +1914,6 @@ export default function SandboxBattleView({
               </button>
             </div>
 
-            {/* DOCK HP GIOCATORE CON ID classicPlayerHpDock */}
             <div className="hp-prismatic-dock" id="classicPlayerHpDock">
               <div className="hp-segmented-grid"></div>
               <div

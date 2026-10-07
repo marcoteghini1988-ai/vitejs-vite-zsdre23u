@@ -37,14 +37,8 @@ import {
 } from './audio';
 import { TerrainVisual, SciFiIcon, ModuleIcon, TacticalVisual, RelicVisual } from './visualAssets';
 import DeepSpaceUniverseCanvas, { SPECIAL_BACKGROUNDS, PLANET_ENVIRONMENTS } from './DeepSpaceUniverseCanvas';
-import TrisBattleView from './TrisBattleView';
-import ClassicBattleView, { calculateAiTurnClassic, generateClassicObjectives } from './ClassicBattleView';
-import HardpointBattleView, { WEAPONS_DATABASE } from './HardpointBattleView';
-import SandboxBattleView from './SandboxBattleView';
+import ClassicBattleView, { WEAPONS_DATABASE, calculateAiTurnClassic, generateClassicObjectives } from './ClassicBattleView';
 
-import VectorBattleView from './VectorBattleView';
-
-import DoubleStageBattleView from './DoubleStageBattleView';
 import CombatJuiceOverlay, { playSynthesizedOperatorSound, getOperatorMicroShakeClass } from './CombatJuiceOverlay';
 
 import { 
@@ -7869,66 +7863,10 @@ const generateTrisStellareObjectives = (
 
 
 
-const getSectorGameType = (planet, level, bossPhase = 1) => {
-  const p = Number(planet) || 1;
-  const l = Number(level) || 1;
-  const globalLevel = (p - 1) * 10 + l;
-
-  // 1. GESTIONE BOSS DEI SETTORI 10
-  if (l === 10) {
-    if (p <= 2) return 'classic';
-    if (p === 3 || p === 4) return 'vector';
-    if (p === 5 || p === 6) return 'double_stage';
-    if (p === 7 || p === 8) return 'tris';
-    if (p === 9 || p === 10) return 'double_stage';
-    if (p === 11) return bossPhase === 1 ? 'classic' : 'vector';
-    if (p === 14) return bossPhase === 1 ? 'vector' : 'double_stage';
-    if (p === 17) {
-      if (bossPhase === 1) return 'classic';
-      if (bossPhase === 2) return 'vector';
-      return 'tris';
-    }
-    if (p === 18 || p === 19) return 'classic';
-    if (p === 20) {
-      if (bossPhase === 1) return 'classic';
-      if (bossPhase === 2) return 'vector';
-      if (bossPhase === 3) return 'double_stage';
-      return 'tris';
-    }
-  }
-
-  // 2. FASCIA D'APPRENDIMENTO DINAMICA PER PIANETA (S1 - S80)
-  if (p === 1 || p === 2) return 'classic'; // P1 Terra & P2 Marte: Fondamenta Classiche
-  if (p === 3) return 'vector'; // P3 Venere: Introduzione Vettore Geometrico
-  if (p === 4) return (l % 2 !== 0) ? 'classic' : 'vector'; // P4 Mercurio: Richiamo Classica / Vettore
-  if (p === 5) return 'double_stage'; // P5 Giove: Introduzione Duello a Doppio Stadio
-  if (p === 6) return (l % 2 !== 0) ? 'vector' : 'double_stage'; // P6 Saturno: Vettore / Duello
-  if (p === 7) return 'tris'; // P7 Urano: Introduzione Tris Stellare
-  if (p === 8) {
-    // P8 Nettuno: Rotazione completa di preparazione pre-Élite
-    const mod4 = l % 4;
-    if (mod4 === 1) return 'classic';
-    if (mod4 === 2) return 'vector';
-    if (mod4 === 3) return 'double_stage';
-    return 'tris';
-  }
-
-  // 3. FASCIA AVANZATA (S81 - S200)
-  if (globalLevel <= 110) return (l % 2 !== 0) ? 'classic' : 'vector';
-  if (globalLevel <= 140) return (l % 2 !== 0) ? 'vector' : 'double_stage';
-  if (globalLevel <= 170) {
-    const mod3 = l % 3;
-    if (mod3 === 1) return 'classic';
-    if (mod3 === 2) return 'vector';
-    return 'double_stage';
-  }
-
-  const mod4 = l % 4;
-  if (mod4 === 1) return 'classic';
-  if (mod4 === 2) return 'vector';
-  if (mod4 === 3) return 'double_stage';
-  return 'tris';
+const getSectorGameType = () => {
+  return 'classic';
 };
+
 
 
 const getLevelReward = (planet, level, isReplay) => {
@@ -8610,10 +8548,11 @@ function GameScreen({
   }, [isPvP, pvpMeta, gameMode, bettingGameType, isAdv, currentAdvPlanet, currentAdvLevel, bossPhase, dailyCfg]);
 
 
-      const isHardpointMode = gameMode === 'hardpoint_test' || currentSectorMode === 'hardpoint';
-const isVectorMode = !isHardpointMode && currentSectorMode === 'vector';
-const isDoubleStageMode = !isHardpointMode && currentSectorMode === 'double_stage';
-const isTrisMode = !isHardpointMode && currentSectorMode === 'tris';
+      const isHardpointMode = false;
+const isVectorMode = false;
+const isDoubleStageMode = false;
+const isTrisMode = false;
+
 
 
 
@@ -9164,10 +9103,21 @@ const isTrisMode = !isHardpointMode && currentSectorMode === 'tris';
 
 
 
-  // Cambio Carte con Selezione Manuale
+   // Serbatoi Munizioni per i 4 Semi delle Armi
+  const [weaponTanks, setWeaponTanks] = useState({
+    spades: 0,
+    hearts: 0,
+    diamonds: 0,
+    clubs: 0
+  });
+  const weaponTanksRef = useRef(weaponTanks);
+  useEffect(() => { weaponTanksRef.current = weaponTanks; }, [weaponTanks]);
+
+  // Cambio Carte nei Tempi Morti (consentito solo durante il turno nemico, max 2 volte)
   const [isExchangeMode, setIsExchangeMode] = useState(false);
   const [selectedExchangeIndices, setSelectedExchangeIndices] = useState([]);
-  const [hasExchangedThisTurn, setHasExchangedThisTurn] = useState(false);
+  const [downtimeExchangesLeft, setDowntimeExchangesLeft] = useState(2);
+
 
       // Barra Malus: Cap a 20 Punti (con riduzione nei pianeti avanzati e bonus passiva Saturno +3 pt a tacca)
   const malusMaxTicks = useMemo(() => {
@@ -11261,11 +11211,17 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
   useEffect(() => {
     if (!isInitializedRef.current || winner) return;
 
-            if (turn === 'player1' && prevTurnRef.current !== 'player1') {
+                if (turn === 'player1' && prevTurnRef.current !== 'player1') {
       prevTurnRef.current = 'player1';
 
-        // Controllo salto turno pulito da sabotaggio nemico: blocco input per 1200ms
+      // Ripristino cambi tempi morti per il turno nemico successivo
+      setDowntimeExchangesLeft(2);
+      setIsExchangeMode(false);
+      setSelectedExchangeIndices([]);
+
+      // Controllo salto turno pulito da sabotaggio nemico: blocco input per 1200ms
       if (playerSkipNextTurn) {
+
         triggerPopup("SISTEMI IN TILT: Turno saltato per sabotaggio nemico!");
         safeSetTimeout(() => {
           setPlayerSkipNextTurn(false);
@@ -11314,7 +11270,7 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
           }
           setPlayerHandLimitNextTurn(null);
 
-                  if (!isDoubleStageMode) {
+                                    if (!isDoubleStageMode) {
             const isVectorTutorial = isVectorMode && !isPvP && gameMode !== 'pve' && localStorage.getItem('eclissi_vector_tutorial_done') !== 'true';
 
             if (isVectorTutorial && playerTurnsCountRef.current === 2) {
@@ -11330,7 +11286,6 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
               ];
               playerHandRef.current = tutHand2;
               setPlayerHand(tutHand2);
-              setHasExchangedThisTurn(false);
               randomizeTurnParameters();
             } else {
               const res = refillHandToTargetSize(playerHandRef.current, playerDeckRef.current, playerDiscardRef.current, targetHandSize);
@@ -11340,7 +11295,6 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
               setPlayerHand(res.newHand);
               setPlayerDeck(res.newDeck);
               setPlayerDiscard(res.newDiscard);
-              setHasExchangedThisTurn(false);
 
               if (checkDeckOutCondition(res.newHand, res.newDeck, res.newDiscard, aiHandRef.current, aiDeckRef.current, aiDiscardRef.current)) {
                 return;
@@ -11349,6 +11303,7 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
               randomizeTurnParameters();
             }
           }
+
 
 
                     // 2. INNESCO BERSAGLI E FAGLIA SU MANO PIENA (TUTTE LE MODALITÀ)
@@ -13211,8 +13166,8 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
                 triggerFloatingText("PISTONE ENCELADO 30 HP!", "#ef4444", "top-right");
               }
 
-                    // Intercettazione Meccaniche di Contrattacco Boss (P14 P20)
-              if (isAdv) {
+                                  // Intercettazione Meccaniche di Contrattacco Boss (Attiva solo se livello 10 Boss e se definita)
+              if (isAdv && currentAdvLevel === 10 && typeof onBossAttack === 'function') {
                 const nextAtkCount = totalAttacksCount + 1;
                 setTotalAttacksCount(nextAtkCount);
 
@@ -13236,46 +13191,54 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
                   ioMagmaPool
                 });
 
-                if (bossAtkRes.bossSelfHeal > 0) {
-                  setAiHp(prev => Math.min(maxAiHpRef.current || 200, prev + bossAtkRes.bossSelfHeal));
-                }
-                if (bossAtkRes.activatePlayerBurn) {
-                  setPlayerTimeBurnActive(true);
-                  setPlayerTimeBurnDps(bossAtkRes.burnDamagePerSecond || 2);
-                  setIsBossImploding(false);
-                }
-                setIoMagmaPool(bossAtkRes.updatedIoMagmaPool);
-                if (bossAtkRes.extraBossModuleCharge > 0) {
-                  setAiAbilityMeter(prev => Math.min(12, prev + bossAtkRes.extraBossModuleCharge));
-                }
+                if (bossAtkRes) {
+                  if (bossAtkRes.bossSelfHeal > 0) {
+                    setAiHp(prev => Math.min(maxAiHpRef.current || 200, prev + bossAtkRes.bossSelfHeal));
+                  }
+                  if (bossAtkRes.activatePlayerBurn) {
+                    setPlayerTimeBurnActive(true);
+                    setPlayerTimeBurnDps(bossAtkRes.burnDamagePerSecond || 2);
+                    setIsBossImploding(false);
+                  }
+                  if (bossAtkRes.updatedIoMagmaPool !== undefined) {
+                    setIoMagmaPool(bossAtkRes.updatedIoMagmaPool);
+                  }
+                  if (bossAtkRes.extraBossModuleCharge > 0) {
+                    setAiAbilityMeter(prev => Math.min(12, prev + bossAtkRes.extraBossModuleCharge));
+                  }
 
+                  if (bossAtkRes.finalDamage !== undefined) rawDamage = bossAtkRes.finalDamage;
+                  if (bossAtkRes.updatedBombReactorCharge !== undefined) setBombReactorCharge(bossAtkRes.updatedBombReactorCharge);
+                  if (bossAtkRes.updatedBombDamagePool !== undefined) setBombDamagePool(bossAtkRes.updatedBombDamagePool);
+                  if (bossAtkRes.updatedCentrifugalCharge !== undefined) setCentrifugalCharge(bossAtkRes.updatedCentrifugalCharge);
 
-                rawDamage = bossAtkRes.finalDamage;
-                setBombReactorCharge(bossAtkRes.updatedBombReactorCharge);
-                setBombDamagePool(bossAtkRes.updatedBombDamagePool);
-                setCentrifugalCharge(bossAtkRes.updatedCentrifugalCharge);
+                  if (bossAtkRes.clearedPlayerDiscards) {
+                    setPlayerDiscard([]);
+                    playerDiscardRef.current = [];
+                  }
+                  if (bossAtkRes.clearedAiDiscards) {
+                    setAiDiscard([]);
+                    aiDiscardRef.current = [];
+                  }
+                  if (bossAtkRes.timeDrainSeconds > 0) {
+                    setPlayerTimeTank(t => Math.max(0, t - bossAtkRes.timeDrainSeconds));
+                  }
+                  if (bossAtkRes.bossSelfDamage > 0) {
+                    triggerAiDamageFx();
+                    setAiHp(prev => Math.max(1, prev - bossAtkRes.bossSelfDamage));
+                  }
+                  if (bossAtkRes.updatedPlayerHand) {
+                    setPlayerHand(bossAtkRes.updatedPlayerHand);
+                    playerHandRef.current = bossAtkRes.updatedPlayerHand;
+                  }
 
-                if (bossAtkRes.clearedPlayerDiscards) {
-                  setPlayerDiscard([]);
-                  playerDiscardRef.current = [];
+                  if (Array.isArray(bossAtkRes.floatingTexts)) {
+                    bossAtkRes.floatingTexts.forEach(f => triggerFloatingText(f.text, f.color, f.position));
+                  }
+                  if (bossAtkRes.popupMessage) triggerPopup(bossAtkRes.popupMessage);
                 }
-                if (bossAtkRes.clearedAiDiscards) {
-                  setAiDiscard([]);
-                  aiDiscardRef.current = [];
-                }
-                if (bossAtkRes.timeDrainSeconds > 0) {
-                  setPlayerTimeTank(t => Math.max(0, t - bossAtkRes.timeDrainSeconds));
-                }
-                if (bossAtkRes.bossSelfDamage > 0) {
-                  triggerAiDamageFx();
-                  setAiHp(prev => Math.max(1, prev - bossAtkRes.bossSelfDamage));
-                }
-                setPlayerHand(bossAtkRes.updatedPlayerHand);
-                playerHandRef.current = bossAtkRes.updatedPlayerHand;
-
-                bossAtkRes.floatingTexts.forEach(f => triggerFloatingText(f.text, f.color, f.position));
-                if (bossAtkRes.popupMessage) triggerPopup(bossAtkRes.popupMessage);
               }
+
 
           if (mirrorShieldActiveRef.current) {
 
@@ -13347,10 +13310,10 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
             return;
           }
 
-            } else {
+                        } else {
 
-          // P18 Eris & P19 Io: Innesco stallo (implosione per Eris / rigetto magma per Io)
-          if (isAdv) {
+          // P18 Eris & P19 Io: Innesco stallo (solo se livello Boss S10 e funzione definita)
+          if (isAdv && currentAdvLevel === 10 && typeof onBossStallOrPass === 'function') {
             const stallRes = onBossStallOrPass({
               planet: currentAdvPlanet,
               level: currentAdvLevel,
@@ -13358,19 +13321,26 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
               ioMagmaPool
             });
 
-            if (stallRes.bossSelfDamage > 0) {
-              triggerAiDamageFx();
-              setAiHp(prev => Math.max(0, prev - stallRes.bossSelfDamage));
+            if (stallRes) {
+              if (stallRes.bossSelfDamage > 0) {
+                triggerAiDamageFx();
+                setAiHp(prev => Math.max(0, prev - stallRes.bossSelfDamage));
+              }
+              if (stallRes.activateBossImplosion) {
+                setIsBossImploding(true);
+                setBossImplosionDps(stallRes.implosionDamagePerSecond || 2);
+                setPlayerTimeBurnActive(false);
+              }
+              if (stallRes.updatedIoMagmaPool !== undefined) {
+                setIoMagmaPool(stallRes.updatedIoMagmaPool);
+              }
+              if (Array.isArray(stallRes.floatingTexts)) {
+                stallRes.floatingTexts.forEach(f => triggerFloatingText(f.text, f.color, f.position));
+              }
+              if (stallRes.popupMessage) triggerPopup(stallRes.popupMessage);
             }
-            if (stallRes.activateBossImplosion) {
-              setIsBossImploding(true);
-              setBossImplosionDps(stallRes.implosionDamagePerSecond || 2);
-              setPlayerTimeBurnActive(false);
-            }
-            setIoMagmaPool(stallRes.updatedIoMagmaPool);
-            stallRes.floatingTexts.forEach(f => triggerFloatingText(f.text, f.color, f.position));
-            if (stallRes.popupMessage) triggerPopup(stallRes.popupMessage);
           }
+
 
           const nextStates = Array(7).fill('');
           nextStates[2] = 'ai-card-discard-anim';
@@ -13705,12 +13675,16 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
     triggerPopup(`Carta presa dal mazzo con successo! (-${requiredEther} Etere)`);
   };
 
-  // GESTIONE CLICK CARTE IN MANO
-    const handleCardClick = (cardIndex) => {
-    if (winner || showReviveModal || turn !== 'player1' || playerSkipNextTurn) return;
+    // GESTIONE CLICK CARTE IN MANO
+  const handleCardClick = (cardIndex) => {
+    if (winner || showReviveModal || playerSkipNextTurn) return;
+    
+    // Se è il turno nemico ma non siamo in modalità cambio carte, blocca l'input
+    if (turn !== 'player1' && !isExchangeMode) return;
 
     const card = playerHand[cardIndex];
     if (!card) return;
+
 
     if (isSelectingDiscard) {
       try { playSound('card_slide'); } catch (_) {}
@@ -13727,11 +13701,21 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
       }
 
                                                   // Scarica di Risonanza Spettacolare (Disattivata a Livello 1, attiva dal Livello 2 in poi)
-          const isSector1 = isAdv && currentAdvPlanet === 1 && currentAdvLevel === 1;
+                    const isSector1 = isAdv && currentAdvPlanet === 1 && currentAdvLevel === 1;
           const discardVal = Number(sacrificed?.value) || 1;
           const discardSuit = getCardSuit(sacrificed);
 
+          // 1. RICARICA BALISTICA: il valore della carta scartata alimenta il serbatoio dell'arma di quel seme
+          if (discardSuit && ['spades', 'hearts', 'diamonds', 'clubs'].includes(discardSuit)) {
+            setWeaponTanks(prev => ({
+              ...prev,
+              [discardSuit]: (prev[discardSuit] || 0) + discardVal
+            }));
+            triggerFloatingText(`+${discardVal} 🎯 TANK ${discardSuit.toUpperCase()}`, '#facc15', 'bottom-left');
+          }
+
           let enemyKilledByDiscard = false;
+
           if (!isSector1) {
             if (discardSuit === 'spades') {
               try { playSound('plasma_damage'); } catch (_) {}
@@ -14001,58 +13985,57 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
     }
   };
 
-          const handlePassTurn = () => {
-    if (turn !== 'player1' || isSelectingDiscard || playerSkipNextTurn) return;
+            const handlePassTurn = () => {
+    if (turn !== 'player1' || playerSkipNextTurn) return;
 
     setResonanceStreak(0);
     setPlayerTimeBurnActive(false);
     setIsBossImploding(false);
-        setIoDoubleAttackUsed(false);
+    setIoDoubleAttackUsed(false);
     checkAndTriggerTerrainCards('pass_turn', true);
     checkAndTriggerTerrainCards('hand_stagnation', true);
     try { playSound('click'); } catch (_) {}
 
-    // Se la mano è già vuota, salta la fase di selezione scarto e ricarica direttamente
-
-
-    if (playerHand.length === 0) {
-      let extraDraw = 0;
-      playerTraits.forEach(t => {
-        if (t.type === 'pass_draw_boost') extraDraw += (t.bonus || 1);
-        if (t.type === 'pass_heal_pct') {
-          const healAmt = Math.round((maxPlayerHp || 50) * (t.bonusPct || 0.05));
-          setPlayerHp(h => Math.min(maxPlayerHp || 50, h + healAmt));
-          triggerFloatingText(`+${healAmt} HP (RIGENERAZIONE)`, '#10b981', 'bottom-left');
-        }
-      });
-
-            const sizeTrait = playerTraits.find(t => t.type === 'hand_size_bonus');
-      const targetSize = (sizeTrait ? (sizeTrait.size || 8) : 7) + extraDraw;
-      const refilled = refillHandToTargetSize([], playerDeckRef.current, playerDiscardRef.current, targetSize);
-      playerHandRef.current = refilled.newHand;
-      playerDeckRef.current = refilled.newDeck;
-      playerDiscardRef.current = refilled.newDiscard;
-      setPlayerHand(refilled.newHand);
-      setPlayerDeck(refilled.newDeck);
-      setPlayerDiscard(refilled.newDiscard);
-
-
-      triggerPopup("Mano vuota: pescate nuove carte e turno ceduto!");
-      if (isRealPvP && db && pvpMeta?.roomId) {
-        update(ref(db, `rooms/${pvpMeta.roomId}`), {
-          turn: pvpMeta.opponent.id,
-          lastAction: { by: pvpMeta.myPlayerId, desc: "Passa Turno", timestamp: Date.now() }
-        });
-      } else {
-        setTurn('ai');
+    // Ripescaggio automatico fino a quota 7 carte (o dimensione mazzo con tratti)
+    let extraDraw = 0;
+    playerTraits.forEach(t => {
+      if (t.type === 'pass_draw_boost') extraDraw += (t.bonus || 1);
+      if (t.type === 'pass_heal_pct') {
+        const healAmt = Math.round((maxPlayerHp || 50) * (t.bonusPct || 0.05));
+        setPlayerHp(h => Math.min(maxPlayerHp || 50, h + healAmt));
+        triggerFloatingText(`+${healAmt} HP (RIGENERAZIONE)`, '#10b981', 'bottom-left');
       }
-      return;
-    }
+    });
 
-    setIsTruePassTurn(true);
-    setIsSelectingDiscard(true);
-        triggerPopup("PASSA TURNO!\n⚡ SCARICA: tocca 1 carta per liberare il potere del suo seme!");
+    const sizeTrait = playerTraits.find(t => t.type === 'hand_size_bonus');
+    const targetSize = (sizeTrait ? (sizeTrait.size || 8) : 7) + extraDraw;
+    const refilled = refillHandToTargetSize(playerHandRef.current, playerDeckRef.current, playerDiscardRef.current, targetSize);
+
+    playerHandRef.current = refilled.newHand;
+    playerDeckRef.current = refilled.newDeck;
+    playerDiscardRef.current = refilled.newDiscard;
+    setPlayerHand(refilled.newHand);
+    setPlayerDeck(refilled.newDeck);
+    setPlayerDiscard(refilled.newDiscard);
+
+    setSelectedIndices([]);
+    setSelectedTrisHandIndices([]);
+    setVectorNucleus(null);
+    setIsExchangeMode(false);
+    setSelectedExchangeIndices([]);
+    setIsSelectingDiscard(false);
+
+    triggerPopup("Turno ceduto all'avversario.");
+    if (isRealPvP && db && pvpMeta?.roomId) {
+      update(ref(db, `rooms/${pvpMeta.roomId}`), {
+        turn: pvpMeta.opponent.id,
+        lastAction: { by: pvpMeta.myPlayerId, desc: "Passa Turno", timestamp: Date.now() }
+      });
+    } else {
+      setTurn('ai');
+    }
   };
+
 
 
 
@@ -14118,7 +14101,7 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
     setPlayerDeck(refilled.newDeck);
     setPlayerDiscard(refilled.newDiscard);
 
-    setHasExchangedThisTurn(true);
+        setDowntimeExchangesLeft(prev => Math.max(0, prev - 1));
     setIsExchangeMode(false);
     setSelectedExchangeIndices([]);
     if (matchStatsRef.current) {
@@ -14126,31 +14109,38 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
     }
 
     triggerFloatingText(`CAMBIATE (${count})`, '#f59e0b', 'bottom-left');
-    triggerPopup(`Cambiate ${count} carte selezionate.\n${penaltyDetails.length > 0 ? `Penalità: ${penaltyDetails.join(' + ')}` : 'Manovra Gratuita!'}`);
+    triggerPopup(`Cambiate ${count} carte nei tempi morti. (${downtimeExchangesLeft - 1} cambi rimasti)\n${penaltyDetails.length > 0 ? `Penalità: ${penaltyDetails.join(' + ')}` : 'Manovra Gratuita!'}`);
   };
 
-    const handleOpenExchangeMode = useCallback(() => {
+
+      const handleOpenExchangeMode = useCallback(() => {
     if (isExchangeBlockedByModifier) {
       try { playSound('deselect'); } catch (_) {}
       triggerPopup('Cambio carte bloccato dalle anomalie di questo settore!');
       return;
     }
-    if (hasExchangedThisTurn) {
+    // Regola Tempi Morti: il cambio è vietato durante il proprio turno di attacco
+    if (turn === 'player1') {
       try { playSound('deselect'); } catch (_) {}
-      triggerPopup('Hai già effettuato il cambio carte in questo turno!');
+      triggerPopup('Il cambio carte è consentito solo nei tempi morti durante il turno avversario!');
       return;
     }
-        if (turn !== 'player1' || isSelectingDiscard || playerSkipNextTurn) return;
-
+    // Verifica tetto massimo di 2 cambi per turno nemico
+    if (downtimeExchangesLeft <= 0) {
+      try { playSound('deselect'); } catch (_) {}
+      triggerPopup('Hai già esaurito i 2 cambi consentiti per questo turno nemico!');
+      return;
+    }
+    if (isSelectingDiscard || playerSkipNextTurn) return;
 
     try { playSound('click'); } catch (_) {}
-    // Reset completo delle selezioni di tutte le modalità per evitare conflitti grafici
     setSelectedIndices([]);
     setSelectedTrisHandIndices([]);
     setSelectedVectorCardIndex(null);
     setSelectedExchangeIndices([]);
     setIsExchangeMode(true);
-  }, [isExchangeBlockedByModifier, hasExchangedThisTurn, turn, isSelectingDiscard, playerSkipNextTurn, triggerPopup]);
+  }, [isExchangeBlockedByModifier, turn, downtimeExchangesLeft, isSelectingDiscard, playerSkipNextTurn, triggerPopup]);
+
 
 
     // Valuta il Colpo Rapido (primi 15s senza aiuti) e ricarica +3s di tempo
@@ -15202,8 +15192,9 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
     if (!attackPayload || turn !== 'player1' || winner || showReviveModal || playerSkipNextTurn) return;
 
     try {
-      const { usedIndices, resolvedObj, damage: baseDamageToAi, usedCards, targetIndex: attackedTargetIndex } = attackPayload;
-      if (!usedIndices || usedIndices.length < 2) return;
+            const { resolvedObj, damage: baseDamageToAi, usedCards, targetIndex: attackedTargetIndex } = attackPayload;
+      if (!usedCards || usedCards.length < 2) return;
+
 
       let riftBonusDamage = 0;
       let riftCritMultiplier = 1.0;
@@ -15391,12 +15382,10 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
         triggerFloatingText(`-${finalDamage} HP`, '#ef4444', 'top-right');
       }
 
-      let remainingHand = [...playerHand];
-      [...usedIndices].sort((a, b) => b - a).forEach(idx => {
-        if (idx < remainingHand.length) remainingHand.splice(idx, 1);
-      });
-      setPlayerHand(remainingHand);
-      playerHandRef.current = remainingHand;
+            // Le carte usate vanno direttamente nella pila degli scarti
+      const updatedDiscard = [...playerDiscardRef.current, ...usedCards];
+      playerDiscardRef.current = updatedDiscard;
+      setPlayerDiscard(updatedDiscard);
 
       if (isRealPvP) {
         sendPvPAction(finalDamage, `Attacco Classica (-${finalDamage} HP)`);
@@ -15404,42 +15393,22 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
 
       onScoreSuccess(true, finalDamage);
 
-           if (nextAiHp <= 0) {
-        const sizeTrait = playerTraits.find(t => t.type === 'hand_size_bonus');
-        const targetSize = (sizeTrait ? (sizeTrait.size || 8) : 7) + riftExtraDraw;
-        const refilled = refillHandToTargetSize(remainingHand, playerDeckRef.current, playerDiscardRef.current, targetSize);
-        playerHandRef.current = refilled.newHand;
-        playerDeckRef.current = refilled.newDeck;
-        playerDiscardRef.current = refilled.newDiscard;
-        setPlayerHand(refilled.newHand);
-        setPlayerDeck(refilled.newDeck);
-        setPlayerDiscard(refilled.newDiscard);
-      } else if (remainingHand.length === 0) {
-        const sizeTrait = playerTraits.find(t => t.type === 'hand_size_bonus');
-        const targetSize = (sizeTrait ? (sizeTrait.size || 8) : 7) + riftExtraDraw;
-        const refilled = refillHandToTargetSize([], playerDeckRef.current, playerDiscardRef.current, targetSize);
-        playerHandRef.current = refilled.newHand;
-        playerDeckRef.current = refilled.newDeck;
-        playerDiscardRef.current = refilled.newDiscard;
-        setPlayerHand(refilled.newHand);
-        setPlayerDeck(refilled.newDeck);
-        setPlayerDiscard(refilled.newDiscard);
-        setIsSelectingDiscard(false);
+      // Ripescaggio automatico dal mazzo: riporta la mano a quota 7 carte (o dimensione mazzo)
+      const sizeTrait = playerTraits.find(t => t.type === 'hand_size_bonus');
+      const targetSize = (sizeTrait ? (sizeTrait.size || 8) : 7) + riftExtraDraw;
+      const refilled = refillHandToTargetSize(playerHandRef.current, playerDeckRef.current, updatedDiscard, targetSize);
+      
+      playerHandRef.current = refilled.newHand;
+      playerDeckRef.current = refilled.newDeck;
+      playerDiscardRef.current = refilled.newDiscard;
+      setPlayerHand(refilled.newHand);
+      setPlayerDeck(refilled.newDeck);
+      setPlayerDiscard(refilled.newDiscard);
+
+      if (nextAiHp > 0 && !isEclipseStormActive) {
         setTurn('ai');
-      } else {
-        if (riftExtraDraw > 0) {
-          const drawRefill = refillHandToTargetSize(remainingHand, playerDeckRef.current, playerDiscardRef.current, remainingHand.length + riftExtraDraw);
-          remainingHand = drawRefill.newHand;
-          playerDeckRef.current = drawRefill.newDeck;
-          playerDiscardRef.current = drawRefill.newDiscard;
-          playerHandRef.current = remainingHand;
-          setPlayerHand(remainingHand);
-          setPlayerDeck(drawRefill.newDeck);
-          setPlayerDiscard(drawRefill.newDiscard);
-        }
-        setIsSelectingDiscard(true);
-        triggerPopup(`COLPO A SEGNO (-${finalDamage} HP)!\n⚡ SCARICA: tocca 1 carta per liberare il potere del suo seme!`);
       }
+
 
     } catch (err) {
       console.error("Errore critico durante l'attacco:", err);
@@ -15609,13 +15578,14 @@ const playExpression = async (payload) => {
       setAiHp(prev => Math.max(0, prev - dmg));
       triggerFloatingText(`-${dmg} HP TERMICO`, '#f43f5e', 'top-right');
       popupDetails.push(`-${dmg} HP danno termico`);
-    } else if (abId === 'planet_char_3') {
+        } else if (abId === 'planet_char_3') {
       const healPct = 0.08 + (t1 - 1) * 0.04;
       const healAmt = Math.round((maxPlayerHp || 50) * healPct);
       setPlayerHp(h => Math.min(maxPlayerHp || 50, h + healAmt));
-      setHasExchangedThisTurn(false);
+      setDowntimeExchangesLeft(2);
       triggerFloatingText(`CAMBIO RESET +${healAmt} HP`, '#8b5cf6', 'bottom-left');
       popupDetails.push(`Cambio carte ripristinato e +${healAmt} HP`);
+
     } else if (abId === 'planet_char_4') {
       const notchesToAdd = t1;
       setPlayerNotches(prev => {
@@ -16233,100 +16203,16 @@ const playExpression = async (payload) => {
       )}
       
                                   
-{isHardpointMode && (
-        <SandboxBattleView
+      {/* Motore Unificato Attivo */}
+
+
+
+            {!isHardpointMode && !isTrisMode && !isVectorMode && !isDoubleStageMode && (
+        <ClassicBattleView
           equippedWeapons={equippedWeapons}
           weaponsLevels={weaponsLevels}
-          activeAnomaly={activeAnomaly}
-          selectedPilot={effectivePlayerPilotId}
-          pilotInventory={pilotInventory}
-          selectedDeck={selectedDeck}
-          aiDeckTheme={aiDeckTheme}
-          playerGoldenCardId={playerGoldenCardId}
-          playerGoldenTurns={playerGoldenTurns}
-          abilityMeter={abilityMeter}
-          isAbilityReady={isAbilityReady}
-          aiAbilityMeter={aiAbilityMeter}
-          handleManualSkillTrigger={handleManualSkillTrigger}
-          playerDiceReady={playerDiceReady}
-          executeQuantumDiceRoll={executeQuantumDiceRoll}
-          equippedEpicItems={equippedEpicItems}
-          usedEpicItemsInMatch={usedEpicItemsInMatch}
-          hasUsedEpicItemThisTurn={hasUsedEpicItemThisTurn}
-          handleActivateEpicItem={handleActivateEpicItem}
-          isPvP={isPvP}
-          pvpMeta={pvpMeta}
-          isAdv={isAdv}
-          currentAdvPlanet={currentAdvPlanet}
-          currentAdvLevel={currentAdvLevel}
-          currentPlanetNameSafe={currentPlanetNameSafe}
-          bossPhase={bossPhase}
-          maxBossPhases={maxBossPhases}
-          aiHp={aiHp}
-          maxAiHp={maxAiHp}
-          aiTimer={aiTimer}
-          aiTimeTank={aiTimeTank}
-          aiMalusGauge={aiMalusGauge}
-          malusMaxTicks={malusMaxTicks}
-          aiNotches={aiNotches}
-          aiDeckCount={isRealPvP ? aiDeckCount : (aiDeck?.length || 0)}
-          aiDeck={aiDeck}
-          aiDiscard={aiDiscard}
-          aiDiscardTop={aiDiscardTop}
-          isRealPvP={isRealPvP}
-          aiTerrainSlots={aiTerrainSlots}
-          effectiveAiDeckLevel={effectiveAiDeckLevel}
-          effectiveAiAbilityId={effectiveAiAbilityId}
-          aiHand={aiHand}
-          aiCardStates={aiCardStates}
-          aiActionMessage={aiActionMessage}
-          playerHp={playerHp}
-          maxPlayerHp={maxPlayerHp}
-          lives={availableReviveLives}
-          timer={timer}
-          playerTimeTank={playerTimeTank}
-          playerMalusGauge={playerMalusGauge}
-          playerNotches={playerNotches}
-          battleEther={battleEther}
-          maxBattleEther={maxBattleEther}
-          isScannerActive={isScannerActive}
-          scannerMode={scannerMode}
-          scannerSeconds={scannerSeconds}
-          toggleScanner={toggleScanner}
-          effectivePlayerDeckLevel={effectivePlayerDeckLevel}
-          selectedAbility={effectivePlayerAbilityId}
-          abilities={abilities}
-          level={level}
-          playerHand={playerHand}
-          playerDeck={playerDeck}
-          playerDiscard={playerDiscard}
-          playerTerrainSlots={playerTerrainSlots}
-          handleRearmTerrainSlot={handleRearmTerrainSlot}
-          onAttack={handleClassicAttack}
-          onCardClick={handleCardClick}
-          pistonOverrideActive={pistonOverrideActive}
-          pistonOverrideDamage={pistonOverrideDamage}
-          handlePassTurn={handlePassTurn}
-          isExchangeMode={isExchangeMode}
-          setIsExchangeMode={setIsExchangeMode}
-          handleOpenExchangeMode={handleOpenExchangeMode}
-          selectedExchangeIndices={selectedExchangeIndices}
-          confirmCardExchange={confirmCardExchange}
-          setShowAbandonConfirm={setShowAbandonConfirm}
-          setShowDeckExtractModal={setShowDeckExtractModal}
-          isSelectingDiscard={isSelectingDiscard}
-          hasExchangedThisTurn={hasExchangedThisTurn}
-          isExchangeBlockedByModifier={isExchangeBlockedByModifier}
-          turn={turn}
-          isBombAllowed={isBombAllowed}
-        />
-      )}
-
-
-      {!isHardpointMode && !isTrisMode && !isVectorMode && !isDoubleStageMode && (
-        <ClassicBattleView
-
           riftState={riftState}
+
           objectives={classicObjectives}
           setObjectives={setClassicObjectives}
           isSector1={isAdv && currentAdvPlanet === 1 && currentAdvLevel === 1}
@@ -16393,17 +16279,19 @@ const playExpression = async (payload) => {
           selectedAbility={effectivePlayerAbilityId}
           abilities={abilities}
           level={level}
-          playerHand={playerHand}
+                    playerHand={playerHand}
+          setPlayerHand={setPlayerHand}
           playerDeck={playerDeck}
           playerDiscard={playerDiscard}
           playerTerrainSlots={playerTerrainSlots}
+
               handleRearmTerrainSlot={handleRearmTerrainSlot}
     onAttack={handleClassicAttack}
     onCardClick={handleCardClick}
     pistonOverrideActive={pistonOverrideActive}
     pistonOverrideDamage={pistonOverrideDamage}
 
-          handlePassTurn={handlePassTurn}
+                    handlePassTurn={handlePassTurn}
           isExchangeMode={isExchangeMode}
           setIsExchangeMode={setIsExchangeMode}
           handleOpenExchangeMode={handleOpenExchangeMode}
@@ -16412,374 +16300,27 @@ const playExpression = async (payload) => {
           setShowAbandonConfirm={setShowAbandonConfirm}
           setShowDeckExtractModal={setShowDeckExtractModal}
           isSelectingDiscard={isSelectingDiscard}
-          hasExchangedThisTurn={hasExchangedThisTurn}
+          hasExchangedThisTurn={downtimeExchangesLeft <= 0}
+          downtimeExchangesLeft={downtimeExchangesLeft}
+          weaponTanks={weaponTanks}
+          setWeaponTanks={setWeaponTanks}
           isExchangeBlockedByModifier={isExchangeBlockedByModifier}
           turn={turn}
           isBombAllowed={isBombAllowed}
           t={t}
         />
+
       )}
 
 
-           {isTrisMode && (
-        <TrisBattleView
-          equippedWeapons={equippedWeapons}
-          weaponsLevels={weaponsLevels}
-          riftState={riftState}
-          activeAnomaly={activeAnomaly}
-
-          selectedPilot={effectivePlayerPilotId}
-
-          pilotInventory={pilotInventory}
-          selectedDeck={selectedDeck}
-          aiDeckTheme={aiDeckTheme}
-          isPvP={isPvP}
-          playerGoldenCardId={playerGoldenCardId}
-          playerGoldenTurns={playerGoldenTurns}
-          abilityMeter={abilityMeter}
-          isAbilityReady={isAbilityReady}
-          aiAbilityMeter={aiAbilityMeter}
-          handleManualSkillTrigger={handleManualSkillTrigger}
-          playerDiceReady={playerDiceReady}
-          executeQuantumDiceRoll={executeQuantumDiceRoll}
-          equippedEpicItems={equippedEpicItems}
-          usedEpicItemsInMatch={usedEpicItemsInMatch}
-          hasUsedEpicItemThisTurn={hasUsedEpicItemThisTurn}
-          handleActivateEpicItem={handleActivateEpicItem}
-          pvpMeta={pvpMeta}
-          isAdv={isAdv}
-          currentAdvPlanet={currentAdvPlanet}
-          currentAdvLevel={currentAdvLevel}
-          currentPlanetNameSafe={currentPlanetNameSafe}
-          bossPhase={bossPhase}
-          maxBossPhases={maxBossPhases}
-          aiHp={aiHp}
-          maxAiHp={maxAiHp}
-          aiTimer={aiTimer}
-          aiTimeTank={aiTimeTank}
-          aiMalusGauge={aiMalusGauge}
-          malusMaxTicks={malusMaxTicks}
-          aiNotches={aiNotches}
-          aiDeckCount={isRealPvP ? aiDeckCount : (aiDeck?.length || 0)}
-          aiDeck={aiDeck}
-          aiDiscard={aiDiscard}
-          aiDiscardTop={aiDiscardTop}
-          isRealPvP={isRealPvP}
-          aiTerrainSlots={aiTerrainSlots}
-          effectiveAiDeckLevel={effectiveAiDeckLevel}
-          effectiveAiAbilityId={effectiveAiAbilityId}
-          aiHand={aiHand}
-          aiCardStates={aiCardStates}
-          aiActionMessage={aiActionMessage}
-          playerHp={playerHp}
-          maxPlayerHp={maxPlayerHp}
-          lives={availableReviveLives}
-          timer={timer}
-          playerTimeTank={playerTimeTank}
-          playerMalusGauge={playerMalusGauge}
-          playerNotches={playerNotches}
-          battleEther={battleEther}
-          maxBattleEther={maxBattleEther}
-          isScannerActive={isScannerActive}
-          scannerMode={scannerMode}
-          scannerSeconds={scannerSeconds}
-          toggleScanner={toggleScanner}
-          effectivePlayerDeckLevel={effectivePlayerDeckLevel}
-          selectedAbility={effectivePlayerAbilityId}
-          abilities={abilities}
-          level={level}
-          playerHand={playerHand}
-          selectedIndices={selectedTrisHandIndices}
-          selectedTrisHandIndices={selectedTrisHandIndices}
-          handleCardClick={handleCardClick}
-          playerDeck={playerDeck}
-          playerDiscard={playerDiscard}
-          playerTerrainSlots={playerTerrainSlots}
-          handleRearmTerrainSlot={handleRearmTerrainSlot}
-          trisObjectives={trisObjectives}
-          selectedObjectiveIndex={selectedObjectiveIndex}
-          handleSelectObjective={handleSelectObjective}
-          trisSelectedOp1={trisSelectedOp1}
-          trisSelectedOp2={trisSelectedOp2}
-          handleSelectTrisOp1={handleSelectTrisOp1}
-          handleSelectTrisOp2={handleSelectTrisOp2}
-          playTrisStellareExpression={handleUniversalAttack}
-          playTrisExpression={handleUniversalAttack}
-          playExpression={handleUniversalAttack}
-          onAttack={handleUniversalAttack}
-          handleAttack={handleUniversalAttack}
-          bombState={bombState}
-          activeScannerHints={activeScannerHints}
-          handlePassTurn={handlePassTurn}
-          isExchangeMode={isExchangeMode}
-          setIsExchangeMode={setIsExchangeMode}
-          handleOpenExchangeMode={handleOpenExchangeMode}
-          selectedExchangeIndices={selectedExchangeIndices}
-          confirmCardExchange={confirmCardExchange}
-          setShowAbandonConfirm={setShowAbandonConfirm}
-          setShowDeckExtractModal={setShowDeckExtractModal}
-          isSelectingDiscard={isSelectingDiscard}
-          hasExchangedThisTurn={hasExchangedThisTurn}
-          isExchangeBlockedByModifier={isExchangeBlockedByModifier}
-          turn={turn}
-          isPlayerTurn={turn === 'player1'}
-          playerTurn={turn === 'player1'}
-          canAttack={turn === 'player1' && !isSelectingDiscard}
-          t={t}
-        />
-      )}
-
-                  {isVectorMode && (
-                <VectorBattleView
-          equippedWeapons={equippedWeapons}
-          weaponsLevels={weaponsLevels}
-          vectorTutorialTurn={
-            (!isPvP && gameMode !== 'pve' && localStorage.getItem('eclissi_vector_tutorial_done') !== 'true')
-              ? Math.max(1, Math.min(2, playerTurnsCountRef.current || 1))
-              : 0
-          }
-          riftState={riftState}
-
-          activeAnomaly={activeAnomaly}
-          selectedPilot={effectivePlayerPilotId}
+                 {/* Vista Tris rimossa */}
 
 
-          pilotInventory={pilotInventory}
-          selectedDeck={selectedDeck}
-          aiDeckTheme={aiDeckTheme}
-          playerGoldenCardId={playerGoldenCardId}
-          playerGoldenTurns={playerGoldenTurns}
-          abilityMeter={abilityMeter}
-          isAbilityReady={isAbilityReady}
-          aiAbilityMeter={aiAbilityMeter}
-          handleManualSkillTrigger={handleManualSkillTrigger}
-          playerDiceReady={playerDiceReady}
-          executeQuantumDiceRoll={executeQuantumDiceRoll}
-          equippedEpicItems={equippedEpicItems}
-          usedEpicItemsInMatch={usedEpicItemsInMatch}
-          hasUsedEpicItemThisTurn={hasUsedEpicItemThisTurn}
-          handleActivateEpicItem={handleActivateEpicItem}
-          isPvP={isPvP}
-          pvpMeta={pvpMeta}
-          isAdv={isAdv}
-          currentAdvPlanet={currentAdvPlanet}
-          currentAdvLevel={currentAdvLevel}
-          currentPlanetNameSafe={currentPlanetNameSafe}
-          bossPhase={bossPhase}
-          maxBossPhases={maxBossPhases}
-          aiHp={aiHp}
-          maxAiHp={maxAiHp}
-          aiTimer={aiTimer}
-          aiTimeTank={aiTimeTank}
-          aiMalusGauge={aiMalusGauge}
-          malusMaxTicks={malusMaxTicks}
-          aiNotches={aiNotches}
-          aiDeckCount={isRealPvP ? aiDeckCount : (aiDeck?.length || 0)}
-          aiDeck={aiDeck}
-          aiDiscard={aiDiscard}
-          aiDiscardTop={aiDiscardTop}
-          isRealPvP={isRealPvP}
-          aiTerrainSlots={aiTerrainSlots}
-          effectiveAiDeckLevel={effectiveAiDeckLevel}
-          effectiveAiAbilityId={effectiveAiAbilityId}
-          aiHand={aiHand}
-          aiCardStates={aiCardStates}
-          aiActionMessage={aiActionMessage}
-          playerHp={playerHp}
-          maxPlayerHp={maxPlayerHp}
-          lives={availableReviveLives}
-          timer={timer}
-          playerTimeTank={playerTimeTank}
-          playerMalusGauge={playerMalusGauge}
-          playerNotches={playerNotches}
-          battleEther={battleEther}
-          maxBattleEther={maxBattleEther}
-          isScannerActive={isScannerActive}
-          scannerMode={scannerMode}
-          scannerSeconds={scannerSeconds}
-          toggleScanner={toggleScanner}
-          effectivePlayerDeckLevel={effectivePlayerDeckLevel}
-          selectedAbility={effectivePlayerAbilityId}
-          abilities={abilities}
-          level={level}
-          playerHand={playerHand}
-          selectedIndices={selectedIndices}
-          setSelectedIndices={setSelectedIndices}
-          selectedVectorCardIndex={selectedVectorCardIndex}
-          activeScannerHints={activeScannerHints}
-          handleCardClick={handleCardClick}
-          playerDeck={playerDeck}
-          playerDiscard={playerDiscard}
-          playerTerrainSlots={playerTerrainSlots}
-          handleRearmTerrainSlot={handleRearmTerrainSlot}
-                    vectorStation={vectorStation}
-          setVectorStation={setVectorStation}
-          vectorTarget={vectorTarget}
-          vectorNucleus={vectorNucleus}
+                        {/* Vista Vettore rimossa */}
 
-          vectorHistorySuits={vectorHistorySuits}
-          vectorUsedCardsCount={vectorUsedCardsCount}
-          onResetVectorNucleus={handleResetVectorNucleus}
-          vectorParityFilter={vectorParityFilter}
-          onPlayVectorPokerAttack={handleUniversalAttack}
-          onAttack={handleUniversalAttack}
-          handleAttack={handleUniversalAttack}
-          playExpression={handleUniversalAttack}
-          vectorBombCountdown={vectorBombCountdown}
-          vectorBombData={vectorBombData}
-          isBombAllowed={isBombAllowed}
-          onApplyVectorOp={(opSymbol, cardIndex) => {
-            const dirMap = {
-              '+': 'right', 'right': 'right',
-              '−': 'up', '-': 'up', 'up': 'up',
-              '×': 'left', '*': 'left', 'left': 'left',
-              '÷': 'down', '/': 'down', 'down': 'down'
-            };
-            handleVectorOperation(dirMap[opSymbol] || 'right', cardIndex);
-          }}
-          handlePassTurn={handlePassTurn}
-          isExchangeMode={isExchangeMode}
-          setIsExchangeMode={setIsExchangeMode}
-          handleOpenExchangeMode={handleOpenExchangeMode}
-          selectedExchangeIndices={selectedExchangeIndices}
-          confirmCardExchange={confirmCardExchange}
-          setShowAbandonConfirm={setShowAbandonConfirm}
-          setShowDeckExtractModal={setShowDeckExtractModal}
-          isSelectingDiscard={isSelectingDiscard}
-          hasExchangedThisTurn={hasExchangedThisTurn}
-          isExchangeBlockedByModifier={isExchangeBlockedByModifier}
-          turn={turn}
-          isPlayerTurn={turn === 'player1'}
-          playerTurn={turn === 'player1'}
-          canAttack={turn === 'player1' && !isSelectingDiscard}
-          t={t}
-        />
-      )}
 
-                  {isDoubleStageMode && (
-        <DoubleStageBattleView
-          equippedWeapons={equippedWeapons}
-          weaponsLevels={weaponsLevels}
-          riftState={riftState}
-          activeAnomaly={activeAnomaly}
+                        {/* Vista Convergenza rimossa */}
 
-          selectedPilot={effectivePlayerPilotId}
-
-          pilotInventory={pilotInventory}
-          selectedDeck={selectedDeck}
-          aiDeckTheme={aiDeckTheme}
-          playerGoldenCardId={playerGoldenCardId}
-          playerGoldenTurns={playerGoldenTurns}
-          abilityMeter={abilityMeter}
-          isAbilityReady={isAbilityReady}
-          aiAbilityMeter={aiAbilityMeter}
-          handleManualSkillTrigger={handleManualSkillTrigger}
-          playerDiceReady={playerDiceReady}
-          executeQuantumDiceRoll={executeQuantumDiceRoll}
-          equippedEpicItems={equippedEpicItems}
-          usedEpicItemsInMatch={usedEpicItemsInMatch}
-          hasUsedEpicItemThisTurn={hasUsedEpicItemThisTurn}
-          handleActivateEpicItem={handleActivateEpicItem}
-          isPvP={isPvP}
-          pvpMeta={pvpMeta}
-          isAdv={isAdv}
-          currentAdvPlanet={currentAdvPlanet}
-          currentAdvLevel={currentAdvLevel}
-          currentPlanetNameSafe={currentPlanetNameSafe}
-          bossPhase={bossPhase}
-          maxBossPhases={maxBossPhases}
-          aiHp={aiHp}
-          maxAiHp={maxAiHp}
-          aiTimer={aiTimer}
-          aiTimeTank={aiTimeTank}
-          aiMalusGauge={aiMalusGauge}
-          malusMaxTicks={malusMaxTicks}
-          aiNotches={aiNotches}
-          aiDeckCount={isRealPvP ? aiDeckCount : (aiDeck?.length || 0)}
-          aiDeck={aiDeck}
-          aiDiscard={aiDiscard}
-          aiDiscardTop={aiDiscardTop}
-          isRealPvP={isRealPvP}
-          aiTerrainSlots={aiTerrainSlots}
-          effectiveAiDeckLevel={effectiveAiDeckLevel}
-          effectiveAiAbilityId={effectiveAiAbilityId}
-          aiHand={aiHand}
-          aiCardStates={aiCardStates}
-          aiActionMessage={aiActionMessage}
-          playerHp={playerHp}
-          maxPlayerHp={maxPlayerHp}
-          lives={availableReviveLives}
-          timer={timer}
-          playerTimeTank={playerTimeTank}
-          playerMalusGauge={playerMalusGauge}
-          playerNotches={playerNotches}
-          battleEther={battleEther}
-          maxBattleEther={maxBattleEther}
-          isScannerActive={isScannerActive}
-          scannerMode={scannerMode}
-          scannerSeconds={scannerSeconds}
-          toggleScanner={toggleScanner}
-          effectivePlayerDeckLevel={effectivePlayerDeckLevel}
-          selectedAbility={effectivePlayerAbilityId}
-          abilities={abilities}
-          level={level}
-          playerHand={playerHand}
-          selectedIndices={selectedIndices}
-          handleCardClick={handleCardClick}
-          playerDeck={playerDeck}
-          playerDiscard={playerDiscard}
-          playerTerrainSlots={playerTerrainSlots}
-          handleRearmTerrainSlot={handleRearmTerrainSlot}
-          convergenceTurn={convergenceTurn}
-          convergenceSubStep={convergenceSubStep}
-          convergenceBaseCard={convergenceBaseCard}
-          convergenceTarget={convergenceTarget}
-          convergencePlayerT1Val={convergencePlayerT1Val}
-          convergenceAiT1Val={convergenceAiT1Val}
-          convergencePlayerTableCards={convergencePlayerTableCards}
-          convergenceAiTableCards={convergenceAiTableCards}
-          convergenceOp1={convergenceOp1}
-          convergenceOp2={convergenceOp2}
-          setConvergenceOp1={setConvergenceOp1}
-          setConvergenceOp2={setConvergenceOp2}
-          playConvergenceExpression={handleUniversalAttack}
-          playDoubleStageExpression={handleUniversalAttack}
-          playExpression={handleUniversalAttack}
-          onAttack={handleUniversalAttack}
-          handleAttack={handleUniversalAttack}
-          convergenceBombData={convergenceBombData}
-          convergenceBombCountdown={convergenceBombCountdown}
-          isBombAllowed={isBombAllowed}
-          duelStage={convergenceTurn}
-          duelSubStep={convergenceSubStep}
-          duelTargetFull={convergenceTarget}
-          duelTargetMasked={convergenceTarget.toString()}
-          duelInequality="="
-          duelPlayerValue={convergencePlayerT1Val}
-          duelAiValue={convergenceAiT1Val}
-          duelSelectedOp={convergenceOp1}
-          handleSelectDuelOp={setConvergenceOp1}
-          duelBombData={convergenceBombData}
-          duelBombCountdown={convergenceBombCountdown}
-          activeScannerHints={activeScannerHints}
-          handlePassTurn={handlePassTurn}
-          isExchangeMode={isExchangeMode}
-          setIsExchangeMode={setIsExchangeMode}
-          handleOpenExchangeMode={handleOpenExchangeMode}
-          selectedExchangeIndices={selectedExchangeIndices}
-          confirmCardExchange={confirmCardExchange}
-          setShowAbandonConfirm={setShowAbandonConfirm}
-          setShowDeckExtractModal={setShowDeckExtractModal}
-          isSelectingDiscard={isSelectingDiscard}
-          hasExchangedThisTurn={hasExchangedThisTurn}
-          isExchangeBlockedByModifier={isExchangeBlockedByModifier}
-          turn={turn}
-          isPlayerTurn={turn === 'player1'}
-          playerTurn={turn === 'player1'}
-          canAttack={turn === 'player1' && !isSelectingDiscard}
-          t={t}
-        />
-      )}
 
 
       {/* 3. SEZIONE INFERIORE: GIOCATORE CON MODULO ABILITÃ€ IBRIDO UNICO */}
@@ -20618,48 +20159,32 @@ function App() {
               </div>
             </div>
 
-            {/* SELEZIONE MODALITÀ DI COMBATTIMENTO */}
-            <div style={{ width: '100%', maxWidth: '420px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <span style={{ fontSize: '0.62rem', color: '#cbd5e1', fontWeight: 800 }}>2. SCEGLI LA DISCIPLINA DI SFIDA:</span>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px' }}>
-                                {[
-                  { id: 'classic', name: 'Classica', reqSector: bettingUnlockThreshold, desc: '4 Operazioni' },
-                  { id: 'vector', name: 'Vettore', reqSector: typeof VECTOR_BETTING_UNLOCK_SECTOR !== 'undefined' ? VECTOR_BETTING_UNLOCK_SECTOR : 21, desc: 'Radar Geometrico' },
-                  { id: 'double_stage', name: 'Convergenza', reqSector: typeof DUEL_BETTING_UNLOCK_SECTOR !== 'undefined' ? DUEL_BETTING_UNLOCK_SECTOR : 41, desc: 'Banco 2+2 & Poker' },
-                  { id: 'tris', name: 'Tris Stellare', reqSector: typeof TRIS_BETTING_UNLOCK_SECTOR !== 'undefined' ? TRIS_BETTING_UNLOCK_SECTOR : 61, desc: 'Incastro & Poker' }
-                ].map(m => {
-
-                  const isModeUnlocked = currentGlobalAdventureSector >= m.reqSector;
-                  const hasSufficientBalance = playerBalance >= curTier.minBet;
-                  return (
-                    <button
-                      key={m.id}
-                      disabled={!isModeUnlocked || !hasSufficientBalance}
-                      onClick={() => {
-                        try { playSound('click'); } catch (_) {}
-                        setPendingBetConfirmation({
-                          tierNum: pendingBetTier,
-                          amount: currentBet,
-                          gameType: m.id
-                        });
-                      }}
-                      className="cyber-btn cyber-btn-warning"
-                      style={{
-                        padding: '8px 4px',
-                        fontSize: '0.75rem',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        opacity: isModeUnlocked && hasSufficientBalance ? 1 : 0.35
-                      }}
-                    >
-                      <span style={{ fontWeight: 900 }}>{isModeUnlocked ? m.name : `🔒 ${m.name}`}</span>
-                      <span style={{ fontSize: '0.55rem', opacity: 0.85 }}>{isModeUnlocked ? m.desc : `Settore ${m.reqSector}`}</span>
-                    </button>
-                  );
-                })}
-              </div>
+                        {/* ACCESSO DIRETTO ALLA SFIDA */}
+            <div style={{ width: '100%', maxWidth: '420px', marginTop: '4px' }}>
+              <button
+                disabled={playerBalance < curTier.minBet}
+                onClick={() => {
+                  try { playSound('click'); } catch (_) {}
+                  setPendingBetConfirmation({
+                    tierNum: pendingBetTier,
+                    amount: currentBet,
+                    gameType: 'classic'
+                  });
+                }}
+                className="cyber-btn cyber-btn-warning"
+                style={{
+                  width: '100%',
+                  padding: '12px 4px',
+                  fontSize: '0.9rem',
+                  fontWeight: 900,
+                  letterSpacing: '1px',
+                  opacity: playerBalance >= curTier.minBet ? 1 : 0.35
+                }}
+              >
+                PROCEDI AL DUELLO ➔
+              </button>
             </div>
+
 
           </div>
         );
@@ -21104,42 +20629,24 @@ function App() {
                       Nessun rischio Trofei. Scegli la modalità di combattimento per allenarti:
                     </p>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.4rem' }}>
-                                            {[
-                        { id: 'classic', name: 'Classica', req: 11, color: '#00f2fe' },
+                                        <button
+                      disabled={!isTrainingUnlocked}
+                      onClick={() => {
+                        try { playSound('click'); } catch (_) {}
+                        setSelectedPvPMode('classic');
+                        setPendingPvPConfirmation({ channel: 'training', mode: 'classic' });
+                      }}
+                      className="cyber-btn cyber-btn-primary"
+                      style={{
+                        width: '100%',
+                        padding: '0.65rem',
+                        fontSize: '0.8rem',
+                        fontWeight: '900'
+                      }}
+                    >
+                      {isTrainingUnlocked ? 'ENTRA IN ADDESTRAMENTO ➔' : `🔒 Richiede Settore ${pvpTrainingUnlockThreshold}`}
+                    </button>
 
-                        { id: 'vector', name: 'Vettore', req: 21, color: '#38bdf8' },
-
-                        { id: 'double_stage', name: 'Convergenza', req: 41, color: '#f59e0b' },
-                        { id: 'tris', name: 'Tris Stellare', req: 61, color: '#a855f7' }
-                      ].map(m => {
-
-                        const unlocked = isPvPModeUnlocked(m.id, currentGlobalAdventureSector);
-                        return (
-                          <button
-                            key={m.id}
-                            disabled={!unlocked || !isTrainingUnlocked}
-                            onClick={() => {
-                              try { playSound('click'); } catch (_) {}
-                              setSelectedPvPMode(m.id);
-                              setPendingPvPConfirmation({ channel: 'training', mode: m.id });
-                            }}
-                            className="cyber-btn"
-                            style={{
-                              padding: '0.45rem 0.2rem',
-                              fontSize: '0.68rem',
-                              fontWeight: '900',
-                              border: `1px solid ${unlocked ? m.color : 'rgba(255,255,255,0.1)'}`,
-                              background: unlocked ? 'rgba(15, 23, 42, 0.9)' : 'rgba(2, 6, 23, 0.7)',
-                              color: unlocked ? '#fff' : '#64748b',
-                              opacity: unlocked ? 1 : 0.4
-                            }}
-                          >
-                            {unlocked ? m.name : `🔒 Settore ${m.req}`}
-                          </button>
-                        );
-                      })}
-                    </div>
                   </div>
                 );
               })()}
@@ -21879,48 +21386,40 @@ function App() {
             <div style={{ fontSize: '0.65rem', color: '#fca5a5', fontWeight: 900, letterSpacing: '1px' }}>PANNELLO DI COLLAUDO</div>
             <h3 style={{ color: '#fff', margin: '0.2rem 0 0.8rem 0', fontWeight: 900, fontSize: '1.1rem' }}>Scegli Modalità da Testare</h3>
             
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
               <button 
                 className="cyber-btn cyber-btn-primary" 
                 style={{ padding: '0.65rem', fontSize: '0.78rem' }}
                 onClick={() => launchDirectTest(1, 1)}
               >
-                ⚔️ Modalità Classica (Terra S.1)
+                ⚔️ Terra Settore 1 (Avvio Standard)
+              </button>
+
+              <button 
+                className="cyber-btn cyber-btn-warning" 
+                style={{ padding: '0.65rem', fontSize: '0.78rem' }}
+                onClick={() => launchDirectTest(1, 10)}
+              >
+                👑 Boss Gaia (Terra Settore 10)
               </button>
 
               <button 
                 className="cyber-btn cyber-btn-primary" 
                 style={{ padding: '0.65rem', fontSize: '0.78rem', borderColor: '#00f2fe' }}
-                onClick={() => launchDirectTest(3, 1)}
+                onClick={() => launchDirectTest(2, 1)}
               >
-                🎯 Vettore Geometrico (Venere S.1)
-              </button>
-
-                      <button 
-                className="cyber-btn cyber-btn-warning" 
-                style={{ padding: '0.65rem', fontSize: '0.78rem' }}
-                onClick={() => launchDirectTest(5, 1)}
-              >
-                🎯 Duello di Convergenza (Giove S.1)
-              </button>
-
-
-                            <button 
-                className="cyber-btn cyber-btn-ether" 
-                style={{ padding: '0.65rem', fontSize: '0.78rem' }}
-                onClick={() => launchDirectTest(7, 1)}
-              >
-                🃏 Tris Stellare (Urano S.1)
+                🪐 Marte Settore 1 (Pianeta 2)
               </button>
 
               <button 
-                className="cyber-btn cyber-btn-warning" 
-                style={{ padding: '0.75rem', fontSize: '0.82rem', fontWeight: 900, borderColor: '#fde047', color: '#fde047', boxShadow: '0 0 16px rgba(250, 204, 21, 0.4)' }}
-                onClick={launchHardpointTest}
+                className="cyber-btn cyber-btn-ether" 
+                style={{ padding: '0.65rem', fontSize: '0.78rem' }}
+                onClick={() => launchDirectTest(20, 10)}
               >
-                🚀 COLLAUDO: 4 Hardpoint (2 Poker + 2 Math)
+                👑 Boss Finale Encelado (P20 S.10)
               </button>
             </div>
+
 
 
             <button 

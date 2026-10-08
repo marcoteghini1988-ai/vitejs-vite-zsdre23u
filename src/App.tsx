@@ -896,6 +896,8 @@ const CLASSIC_POKER_PATTERNS = Object.freeze([
   { id: 'royal_flush', name: 'SCALA REALE', cardsCount: 5, damage: 20, desc: '5 carte consecutive dello stesso seme (-20 HP)' }
 ]);
 
+
+
 const validateClassicPokerPattern = (cards, patternId) => {
   if (!cards || !patternId) return false;
   const validCards = cards.filter(Boolean);
@@ -7107,9 +7109,10 @@ function EpicItemsHubScreen({
 
 // 4.0 MOTORE CARTE & MAZZI INDIPENDENTI (54 CARTE), ALGORITMI BALISTICI
 const PLANET_MODS_TABLE = Object.freeze([
-  [1, 2], [2, 3], [3, 1], [1, 3], [2, 1], [3, 2], [1, 2], [2, 3], [3, 1], [1, 3],
+  [0, 0], [2, 3], [3, 1], [1, 3], [2, 1], [3, 2], [1, 2], [2, 3], [3, 1], [1, 3],
   [2, 1], [3, 2], [1, 2], [2, 3], [3, 1], [1, 3], [2, 1], [3, 2], [1, 2], [2, 3]
 ]);
+
 
 // 4.1 HELPER RECUPERO TRATTI ATTIVI DEL MAZZO (SCALA CUMULATIVA A 3, 6 E 9 LIVELLI)
 const getDeckActiveTraits = (deckId = 'neutral_starter', deckLevel = 1) => {
@@ -7561,7 +7564,8 @@ const evaluateSuitBonus = (cards, deckId = 'neutral_starter', deckLevel = 1, max
     }
   });
 
-  const isFourSuitsCombo = suitsUsed.size >= 4 && validCards.length === 4;
+    const isFourSuitsCombo = suitsUsed.size >= 4 && validCards.length >= 4;
+
   let damageMultiplier = 1;
   if (isFourSuitsCombo) {
     const comboTrait = traits.find(t => t.type === 'combo_4suits_mult');
@@ -9103,7 +9107,12 @@ const isTrisMode = false;
 
 
 
-   // Serbatoi Munizioni per i 4 Semi delle Armi
+            // Banco Comune Condiviso a 5 Slot (Giocatore e IA)
+  const [tableSlots, setTableSlots] = useState([null, null, null, null, null]);
+  const tableSlotsRef = useRef(tableSlots);
+  useEffect(() => { tableSlotsRef.current = tableSlots; }, [tableSlots]);
+
+      // Serbatoi Munizioni per i 4 Semi delle Armi (Giocatore e IA)
   const [weaponTanks, setWeaponTanks] = useState({
     spades: 0,
     hearts: 0,
@@ -9112,6 +9121,17 @@ const isTrisMode = false;
   });
   const weaponTanksRef = useRef(weaponTanks);
   useEffect(() => { weaponTanksRef.current = weaponTanks; }, [weaponTanks]);
+
+
+  const [aiWeaponTanks, setAiWeaponTanks] = useState({
+    spades: 0,
+    hearts: 0,
+    diamonds: 0,
+    clubs: 0
+  });
+  const aiWeaponTanksRef = useRef(aiWeaponTanks);
+  useEffect(() => { aiWeaponTanksRef.current = aiWeaponTanks; }, [aiWeaponTanks]);
+
 
   // Cambio Carte nei Tempi Morti (consentito solo durante il turno nemico, max 2 volte)
   const [isExchangeMode, setIsExchangeMode] = useState(false);
@@ -9470,9 +9490,11 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
     setAiDeck(freshAiDeck.slice(7));
     setAiDiscard([]);
 
-        // Pulizia totale selezioni e modificatori di fase precedente
+           // Pulizia totale selezioni e modificatori di fase precedente
         setSelectedIndices([]);
     setSelectedTrisHandIndices([]);
+    setTableSlots([null, null, null, null, null]);
+    tableSlotsRef.current = [null, null, null, null, null];
     setVectorNucleus(null);
     setSelectedVectorCardIndex(null);
     setPlayerGoldenCardId(null);
@@ -9483,6 +9505,7 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
     setRiftState(null);
     riftStateRef.current = null;
     damageTakenAccumulatorRef.current = 0;
+
 
     // Ripristino timer di turno e rigenerazione parametri per la nuova fase/modalità
     setTimer(getBaseTime());
@@ -10137,11 +10160,12 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
   }, [declareWinner, nickname, triggerPopup, isPvP, pvpMeta]);
 
 
-    // TIMER AVVERSARIO CON CONSUMO SERBATOIO E TIMEOUT REALE
+        // TIMER AVVERSARIO CON CONSUMO SERBATOIO E TIMEOUT REALE (IN PAUSA DURANTE IL CAMBIO CARTE)
   useEffect(() => {
-    if (winner || showReviveModal || turn !== 'ai' || activeDiscoveryTutorial) return;
+    if (winner || showReviveModal || turn !== 'ai' || activeDiscoveryTutorial || isExchangeMode) return;
 
     const interval = setInterval(() => {
+
       setAiTimer((prev) => {
         if (prev > 1) return prev - 1;
 
@@ -10169,8 +10193,9 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
       });
     }, 1000);
 
-    return () => clearInterval(interval);
-  }, [turn, winner, showReviveModal, activeDiscoveryTutorial, clearAiTurnTimeouts]);
+        return () => clearInterval(interval);
+  }, [turn, winner, showReviveModal, activeDiscoveryTutorial, isExchangeMode, clearAiTurnTimeouts]);
+
 
 
   const handleRevive = () => {
@@ -11231,10 +11256,37 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
       }
 
 
-          playerTurnsCountRef.current += 1;
+                    playerTurnsCountRef.current += 1;
           setHasUsedEpicItemThisTurn(false);
           setIsSelectingDiscard(false);
           setTemporaryTerrainUnlocked(false);
+
+          // SIMMETRIA: Cambio carte IA nei tempi morti (mentre tocca al giocatore)
+          if (!isRealPvP && !isExchangeBlockedByModifier && Math.random() < 0.35) {
+            safeSetTimeout(() => {
+              if (turn === 'player1' && aiHandRef.current.length >= 2) {
+                let aiHandCopy = [...aiHandRef.current];
+                let aiDiscCopy = [...aiDiscardRef.current];
+                const cardsToSwap = Math.min(2, aiHandCopy.length);
+                for (let i = 0; i < cardsToSwap; i++) {
+                  aiDiscCopy.push(aiHandCopy.shift());
+                }
+                const refilledAi = refillHandToTargetSize(aiHandCopy, aiDeckRef.current, aiDiscCopy, 7);
+                aiHandRef.current = refilledAi.newHand;
+                aiDeckRef.current = refilledAi.newDeck;
+                aiDiscardRef.current = refilledAi.newDiscard;
+                setAiHand(refilledAi.newHand);
+                setAiDeck(refilledAi.newDeck);
+                setAiDiscard(refilledAi.newDiscard);
+
+                // Penalità simmetrica: l'IA ti regala +3 HP per il cambio
+                setPlayerHp(h => Math.min(maxPlayerHp || 50, h + 3));
+                triggerFloatingText("+3 HP (CAMBIO CARTE NEMICO)", "#10b981", "bottom-left");
+                triggerPopup("L'avversario ha effettuato un cambio carte nei tempi morti (+3 HP a te)!");
+              }
+            }, 3000);
+          }
+
 
           if (enemyPassiveSilencedTurns > 0) {
             setEnemyPassiveSilencedTurns(prev => prev - 1);
@@ -12337,14 +12389,16 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
 
 
 
-  // --------------------------------------------------------------------------
-  // MOTORE AVVERSARIO CON TIMING REALISTICI PER LE 4 MODALITÃ€
+      // --------------------------------------------------------------------------
+  // MOTORE AVVERSARIO CON TIMING REALISTICI (IN PAUSA SE IL GIOCATORE CAMBIA CARTE)
   // --------------------------------------------------------------------------
     useEffect(() => {
-    if (isRealPvP || turn !== 'ai' || winner || activeDiscoveryTutorial) {
+    if (isRealPvP || turn !== 'ai' || winner || activeDiscoveryTutorial || isExchangeMode) {
       clearAiTurnTimeouts();
       return;
     }
+
+
 
         if (enemySkipNextTurn) {
       setEnemySkipNextTurn(false);
@@ -13075,41 +13129,55 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
     }
 
 
-    // 4. MODALITÀ STANDARD (CLASSICA)
-
-    setAiActionMessage(isGhostMatch ? `Turno di ${pvpMeta?.opponent?.nickname || 'Avversario'}...` : "L'avversario sta scegliendo le carte...");
+    // 4. MODALITÀ STANDARD (CLASSICA - BANCO COMUNE CONDIVISO)
+    setAiActionMessage(isGhostMatch ? `Turno di ${pvpMeta?.opponent?.nickname || 'Avversario'}...` : "L'avversario osserva il banco comune...");
     setAiCardStates(Array(7).fill(''));
 
     safeAiTimeout(() => {
+      // 1. L'IA cala fino a 3 carte dalla mano sul banco comune
+      let curAiHand = [...aiHandRef.current];
+      let curTable = [...tableSlotsRef.current];
+      let overwrittenCards = [];
+      const cardsToPlay = Math.min(3, curAiHand.length);
+
+      for (let c = 0; c < cardsToPlay; c++) {
+        if (curAiHand.length === 0) break;
+        const cardToPlace = curAiHand.shift();
+        const emptyIdx = curTable.findIndex(s => s === null);
+        if (emptyIdx !== -1) {
+          curTable[emptyIdx] = cardToPlace;
+        } else {
+          // Se il banco è pieno (5/5), salva la vecchia carta negli scarti prima di sovrascrivere
+          if (curTable[c % 5] !== null) {
+            overwrittenCards.push(curTable[c % 5]);
+          }
+          curTable[c % 5] = cardToPlace;
+        }
+        const aiSuit = getCardSuit(cardToPlace);
+        const aiVal = Number(cardToPlace?.value) || 0;
+        if (aiSuit && typeof setAiWeaponTanks === 'function') {
+          setAiWeaponTanks(prev => ({ ...prev, [aiSuit]: (prev[aiSuit] || 0) + aiVal }));
+        }
+      }
+
+      // Se ci sono state sostituzioni su banco pieno, manda le vecchie carte agli scarti
+      if (overwrittenCards.length > 0) {
+        const nextDisc = [...aiDiscardRef.current, ...overwrittenCards];
+        aiDiscardRef.current = nextDisc;
+        setAiDiscard(nextDisc);
+      }
+
+      setTableSlots(curTable);
+      tableSlotsRef.current = curTable;
+      setAiHand(curAiHand);
+      aiHandRef.current = curAiHand;
+
       const nextStates = Array(7).fill('');
+      nextStates[0] = 'ai-card-selected';
       nextStates[1] = 'ai-card-selected';
       setAiCardStates(nextStates);
-      setAiActionMessage("L'avversario calcola la combinazione...");
-      try { playSound('select'); } catch (_) {}
-
-      if (pacing.hasHesitation) {
-        safeAiTimeout(() => {
-          nextStates[1] = '';
-          setAiCardStates([...nextStates]);
-          setAiActionMessage("L'avversario cambia strategia...");
-          try { playSound('deselect'); } catch (_) {}
-
-          safeAiTimeout(() => {
-            nextStates[2] = 'ai-card-selected';
-            nextStates[4] = 'ai-card-selected';
-            setAiCardStates([...nextStates]);
-            setAiActionMessage("L'avversario prepara l'attacco...");
-            try { playSound('select'); } catch (_) {}
-          }, 800);
-        }, pacing.hesitationTime - pacing.firstTap);
-      } else {
-        safeAiTimeout(() => {
-          nextStates[3] = 'ai-card-selected';
-          setAiCardStates([...nextStates]);
-          setAiActionMessage("L'avversario prepara il colpo...");
-          try { playSound('select'); } catch (_) {}
-        }, pacing.secondTap - pacing.firstTap);
-      }
+      setAiActionMessage("L'avversario ha posato le sue carte sul banco...");
+      try { playSound('card_slide'); } catch (_) {}
     }, pacing.firstTap);
 
     safeAiTimeout(() => {
@@ -13119,17 +13187,16 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
           triggerAiDamageFx();
           triggerFloatingText(`-5 HP (TEMPO SCADUTO)`, '#ef4444', 'top-right');
           setAiActionMessage(isGhostMatch ? `Tempo scaduto per ${pvpMeta?.opponent?.nickname || 'Avversario'} (-5 HP)` : "Tempo scaduto per l'avversario (-5 HP)");
-          
-                  setAiHp(prev => Math.max(0, prev - timeoutPenalty));
-
+          setAiHp(prev => Math.max(0, prev - timeoutPenalty));
 
           let curAiHand = [...aiHandRef.current];
-          let curAiDisc = [...aiDiscardRef.current];
-          if (curAiHand.length > 0) curAiDisc.push(curAiHand.shift());
-          const refilled = refillHandToTargetSize(curAiHand, aiDeckRef.current, curAiDisc, 7);
+          const refilled = refillHandToTargetSize(curAiHand, aiDeckRef.current, aiDiscardRef.current, 7);
           setAiHand(refilled.newHand);
           setAiDeck(refilled.newDeck);
           setAiDiscard(refilled.newDiscard);
+          aiHandRef.current = refilled.newHand;
+          aiDeckRef.current = refilled.newDeck;
+          aiDiscardRef.current = refilled.newDiscard;
 
           safeSetTimeout(() => {
             setAiActionMessage("");
@@ -13140,7 +13207,7 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
           return;
         }
 
-                const adv = activeAdventureRef.current;
+        const adv = activeAdventureRef.current;
         const tc = tierConfigRef.current;
         const aiSuccessChance = isGhostMatch ? 0.75 : (adv ? adv.aiPower : (tc ? tc.aiPower : 0.65));
         const isSuccess = Math.random() < aiSuccessChance;
@@ -13149,109 +13216,29 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
           checkAndTriggerTerrainCards('enemy_fast_turn', true);
         }
 
-                   if (isSuccess) {
+        if (isSuccess) {
+          const nextStates = Array(7).fill('');
+          [0, 1].forEach(idx => { nextStates[idx] = 'ai-card-attack-anim'; });
+          setAiCardStates(nextStates);
 
-              const nextStates = Array(7).fill('');
-              [1, 3].forEach(idx => { nextStates[idx] = 'ai-card-attack-anim'; });
-              setAiCardStates(nextStates);
+          const opsPool = ['+', '-', '*', '/'];
+          const executedOp = opsPool[Math.floor(Math.random() * opsPool.length)];
+          let rawDamage = getAiDamageForCurrentLevel(executedOp);
 
-                           const opsPool = ['+', '-', '*', '/'];
-              const executedOp = opsPool[Math.floor(Math.random() * opsPool.length)];
-              let rawDamage = getAiDamageForCurrentLevel(executedOp);
- 
-
-                            if (enemyPistonOverrideActive) {
-                rawDamage = enemyPistonOverrideDamage;
-                setEnemyPistonOverrideActive(false);
-                triggerFloatingText("PISTONE ENCELADO 30 HP!", "#ef4444", "top-right");
-              }
-
-                                  // Intercettazione Meccaniche di Contrattacco Boss (Attiva solo se livello 10 Boss e se definita)
-              if (isAdv && currentAdvLevel === 10 && typeof onBossAttack === 'function') {
-                const nextAtkCount = totalAttacksCount + 1;
-                setTotalAttacksCount(nextAtkCount);
-
-                const bossAtkRes = onBossAttack({
-                  planet: currentAdvPlanet,
-                  level: currentAdvLevel,
-                  rawDamage,
-                  aiCards: aiHandRef.current,
-                  playerHand: playerHandRef.current,
-                  playerNotches,
-                  currentAiHp: aiHpRef.current,
-                  playerHp: playerHpRef.current,
-                  bombReactorCharge,
-                  bombDamagePool,
-                  totalAttacksCount: nextAtkCount,
-                  centrifugalCharge,
-                  playerDiscardPile: playerDiscardRef.current,
-                  aiDiscardPile: aiDiscardRef.current,
-                  bossPhase,
-                  ioCycleTurn,
-                  ioMagmaPool
-                });
-
-                if (bossAtkRes) {
-                  if (bossAtkRes.bossSelfHeal > 0) {
-                    setAiHp(prev => Math.min(maxAiHpRef.current || 200, prev + bossAtkRes.bossSelfHeal));
-                  }
-                  if (bossAtkRes.activatePlayerBurn) {
-                    setPlayerTimeBurnActive(true);
-                    setPlayerTimeBurnDps(bossAtkRes.burnDamagePerSecond || 2);
-                    setIsBossImploding(false);
-                  }
-                  if (bossAtkRes.updatedIoMagmaPool !== undefined) {
-                    setIoMagmaPool(bossAtkRes.updatedIoMagmaPool);
-                  }
-                  if (bossAtkRes.extraBossModuleCharge > 0) {
-                    setAiAbilityMeter(prev => Math.min(12, prev + bossAtkRes.extraBossModuleCharge));
-                  }
-
-                  if (bossAtkRes.finalDamage !== undefined) rawDamage = bossAtkRes.finalDamage;
-                  if (bossAtkRes.updatedBombReactorCharge !== undefined) setBombReactorCharge(bossAtkRes.updatedBombReactorCharge);
-                  if (bossAtkRes.updatedBombDamagePool !== undefined) setBombDamagePool(bossAtkRes.updatedBombDamagePool);
-                  if (bossAtkRes.updatedCentrifugalCharge !== undefined) setCentrifugalCharge(bossAtkRes.updatedCentrifugalCharge);
-
-                  if (bossAtkRes.clearedPlayerDiscards) {
-                    setPlayerDiscard([]);
-                    playerDiscardRef.current = [];
-                  }
-                  if (bossAtkRes.clearedAiDiscards) {
-                    setAiDiscard([]);
-                    aiDiscardRef.current = [];
-                  }
-                  if (bossAtkRes.timeDrainSeconds > 0) {
-                    setPlayerTimeTank(t => Math.max(0, t - bossAtkRes.timeDrainSeconds));
-                  }
-                  if (bossAtkRes.bossSelfDamage > 0) {
-                    triggerAiDamageFx();
-                    setAiHp(prev => Math.max(1, prev - bossAtkRes.bossSelfDamage));
-                  }
-                  if (bossAtkRes.updatedPlayerHand) {
-                    setPlayerHand(bossAtkRes.updatedPlayerHand);
-                    playerHandRef.current = bossAtkRes.updatedPlayerHand;
-                  }
-
-                  if (Array.isArray(bossAtkRes.floatingTexts)) {
-                    bossAtkRes.floatingTexts.forEach(f => triggerFloatingText(f.text, f.color, f.position));
-                  }
-                  if (bossAtkRes.popupMessage) triggerPopup(bossAtkRes.popupMessage);
-                }
-              }
-
+          if (enemyPistonOverrideActive) {
+            rawDamage = enemyPistonOverrideDamage;
+            setEnemyPistonOverrideActive(false);
+            triggerFloatingText("PISTONE ENCELADO 30 HP!", "#ef4444", "top-right");
+          }
 
           if (mirrorShieldActiveRef.current) {
-
             const reflectedDamage = Math.round(rawDamage * mirrorShieldMultiplierRef.current);
             setMirrorShieldActive(false);
-
             triggerAiDamageFx();
             triggerFloatingText(`BARRIERA! -${reflectedDamage} HP AL NEMICO`, '#14b8a6', 'top-right');
             setAiActionMessage(`ATTACCO RIFLESSO! Subisce -${reflectedDamage} HP!`);
-
-                    setAiHp(prev => Math.max(0, prev - reflectedDamage));
-
-            triggerPopup(`BARRIERA DIELETTRICA:\nDanno nemico (${rawDamage} HP) annullato e riflesso (-${reflectedDamage} HP) contro l'avversario!`);
+            setAiHp(prev => Math.max(0, prev - reflectedDamage));
+            triggerPopup(`BARRIERA DIELETTRICA:\nDanno nemico annullato e riflesso (-${reflectedDamage} HP)!`);
           } else {
             let finalAiDmg = rawDamage;
             const shieldTrait = playerTraitsRef.current.find(t => t.type === 'first_hit_shield');
@@ -13259,25 +13246,15 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
               finalAiDmg = Math.max(1, Math.round(rawDamage * (1 - (shieldTrait.reductionPct || 0.50))));
               setHasUsedFirstHitShield(true);
               triggerFloatingText(`SCUDO ANULARE (-50%)`, '#f59e0b', 'bottom-left');
-              triggerPopup(`Saturno Liv. 3: Scudo Anulare ha assorbito il 50% del colpo (-${finalAiDmg} HP invece di -${rawDamage} HP)!`);
             }
 
-                                     setAiActionMessage(
-  isGhostMatch 
-    ? `${pvpMeta?.opponent?.nickname || 'Avversario'} attacca!` 
-    : `Calcolo [${executedOp}] completato! L'avversario sferra l'attacco!`
-);
-
-              try { playSound('plasma_damage'); } catch (_) {}
-
+            setAiActionMessage(isGhostMatch ? `${pvpMeta?.opponent?.nickname || 'Avversario'} attacca!` : `L'avversario spara dal banco comune! (-${finalAiDmg} HP)`);
+            try { playSound('plasma_damage'); } catch (_) {}
             triggerPlayerDamageFx();
             triggerFloatingText(`-${finalAiDmg} HP`, '#ef4444', 'bottom-left');
 
             checkAndTriggerTerrainCards('enemy_hit', true, { incomingDamage: finalAiDmg });
-            if (finalAiDmg > 18) {
-              checkAndTriggerTerrainCards('heavy_damage', true, { incomingDamage: finalAiDmg });
-            }
-
+            if (finalAiDmg > 18) checkAndTriggerTerrainCards('heavy_damage', true, { incomingDamage: finalAiDmg });
 
             registerAiOp(executedOp);
             setAiAbilityMeter(prev => Math.min(12, prev + 4));
@@ -13288,99 +13265,79 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
               setAiHp(prev => Math.max(0, prev - (thornsTrait.value || 4)));
             }
 
-                   setPlayerHp(prev => Math.max(0, prev - finalAiDmg));
+            setPlayerHp(prev => Math.max(0, prev - finalAiDmg));
+            if (onScoreSuccessRef.current) onScoreSuccessRef.current(false, finalAiDmg);
+          }
 
-
-            if (onScoreSuccessRef.current) {
-              onScoreSuccessRef.current(false, finalAiDmg);
+          // L'IA consuma le carte usate per fare fuoco, le manda negli scarti e scarica le munizioni
+          let tableAfterAi = [...tableSlotsRef.current];
+          let removedCards = [];
+          for (let i = 0; i < tableAfterAi.length && removedCards.length < 2; i++) {
+            if (tableAfterAi[i] !== null) {
+              removedCards.push(tableAfterAi[i]);
+              tableAfterAi[i] = null;
             }
           }
+          setTableSlots(tableAfterAi);
+          tableSlotsRef.current = tableAfterAi;
 
-          // L'IA consuma 2 carte per l'attacco senza metterle negli scarti
-          let curAiHand = [...aiHandRef.current];
-          if (curAiHand.length > 0) curAiHand.shift();
-          if (curAiHand.length > 0) curAiHand.shift();
-          const refilled = refillHandToTargetSize(curAiHand, aiDeckRef.current, aiDiscardRef.current, 7);
-          setAiHand(refilled.newHand);
-          setAiDeck(refilled.newDeck);
-          setAiDiscard(refilled.newDiscard);
+          // Invia le carte usate agli scarti dell'IA per evitare memory leak
+          const updatedAiDiscard = [...aiDiscardRef.current, ...removedCards];
+          aiDiscardRef.current = updatedAiDiscard;
+          setAiDiscard(updatedAiDiscard);
 
-          if (checkDeckOutCondition(playerHandRef.current, playerDeckRef.current, playerDiscardRef.current, refilled.newHand, refilled.newDeck, refilled.newDiscard)) {
-            aiTurnRunningRef.current = false;
-            return;
-          }
-
-                        } else {
-
-          // P18 Eris & P19 Io: Innesco stallo (solo se livello Boss S10 e funzione definita)
-          if (isAdv && currentAdvLevel === 10 && typeof onBossStallOrPass === 'function') {
-            const stallRes = onBossStallOrPass({
-              planet: currentAdvPlanet,
-              level: currentAdvLevel,
-              ioCycleTurn,
-              ioMagmaPool
+          // Consuma munizioni dell'IA
+          setAiWeaponTanks(prev => {
+            const next = { ...prev };
+            removedCards.forEach(c => {
+              const s = getCardSuit(c);
+              if (s && next[s] !== undefined) {
+                next[s] = Math.max(0, next[s] - 10);
+              }
             });
+            return next;
+          });
 
-            if (stallRes) {
-              if (stallRes.bossSelfDamage > 0) {
-                triggerAiDamageFx();
-                setAiHp(prev => Math.max(0, prev - stallRes.bossSelfDamage));
-              }
-              if (stallRes.activateBossImplosion) {
-                setIsBossImploding(true);
-                setBossImplosionDps(stallRes.implosionDamagePerSecond || 2);
-                setPlayerTimeBurnActive(false);
-              }
-              if (stallRes.updatedIoMagmaPool !== undefined) {
-                setIoMagmaPool(stallRes.updatedIoMagmaPool);
-              }
-              if (Array.isArray(stallRes.floatingTexts)) {
-                stallRes.floatingTexts.forEach(f => triggerFloatingText(f.text, f.color, f.position));
-              }
-              if (stallRes.popupMessage) triggerPopup(stallRes.popupMessage);
-            }
-          }
-
-
-          const nextStates = Array(7).fill('');
-          nextStates[2] = 'ai-card-discard-anim';
-          setAiCardStates(nextStates);
-
-                let curAiHand = [...aiHandRef.current];
-
-          let curAiDisc = [...aiDiscardRef.current];
-          if (curAiHand.length > 0) curAiDisc.push(curAiHand.shift());
-          const refilled = refillHandToTargetSize(curAiHand, aiDeckRef.current, curAiDisc, 7);
+          const refilled = refillHandToTargetSize(aiHandRef.current, aiDeckRef.current, updatedAiDiscard, 7);
           setAiHand(refilled.newHand);
           setAiDeck(refilled.newDeck);
           setAiDiscard(refilled.newDiscard);
+          aiHandRef.current = refilled.newHand;
+          aiDeckRef.current = refilled.newDeck;
+          aiDiscardRef.current = refilled.newDiscard;
 
           if (checkDeckOutCondition(playerHandRef.current, playerDeckRef.current, playerDiscardRef.current, refilled.newHand, refilled.newDeck, refilled.newDiscard)) {
             aiTurnRunningRef.current = false;
             return;
           }
-
-          setAiActionMessage(isGhostMatch ? `${pvpMeta?.opponent?.nickname || 'Avversario'} scarta 1 carta e passa.` : "Nessun calcolo valido. L'avversario scarta 1 carta e passa il turno.");
-
+        } else {
+          setAiActionMessage("Nessuna combinazione per il nemico. Le carte restano sul banco!");
           try { playSound('deselect'); } catch (_) {}
+
+          const refilled = refillHandToTargetSize(aiHandRef.current, aiDeckRef.current, aiDiscardRef.current, 7);
+          setAiHand(refilled.newHand);
+          setAiDeck(refilled.newDeck);
+          setAiDiscard(refilled.newDiscard);
+          aiHandRef.current = refilled.newHand;
+          aiDeckRef.current = refilled.newDeck;
+          aiDiscardRef.current = refilled.newDiscard;
         }
       } catch (err) {
         console.warn("Errore turno avversario:", err);
       } finally {
-                safeAiTimeout(() => {
+        safeAiTimeout(() => {
           setAiActionMessage("");
           setAiCardStates(Array(7).fill(''));
           aiTurnRunningRef.current = false;
-          if (isAdv && currentAdvPlanet === 19 && currentAdvLevel === 10) {
-            setIoCycleTurn(prev => prev + 1);
-          }
           setTurn('player1');
         }, 900);
-
       }
     }, pacing.executeTime);
 
-  }, [turn, activeDiscoveryTutorial]);
+
+
+  }, [turn, activeDiscoveryTutorial, isExchangeMode]);
+
 
   // GESTIONE SCARTO MANUALE SU PASSA TURNO & TIMEOUT
   const handleTimeOut = () => {
@@ -13675,15 +13632,33 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
     triggerPopup(`Carta presa dal mazzo con successo! (-${requiredEther} Etere)`);
   };
 
-    // GESTIONE CLICK CARTE IN MANO
+        // GESTIONE CLICK CARTE IN MANO
   const handleCardClick = (cardIndex) => {
     if (winner || showReviveModal || playerSkipNextTurn) return;
-    
-    // Se è il turno nemico ma non siamo in modalità cambio carte, blocca l'input
-    if (turn !== 'player1' && !isExchangeMode) return;
+
+    // 1. PRIORITÀ ASSOLUTA AL CAMBIO CARTE NEI TEMPI MORTI
+    if (isExchangeMode) {
+      if (selectedExchangeIndices.includes(cardIndex)) {
+        try { playSound('deselect'); } catch (_) {}
+        setSelectedExchangeIndices(prev => prev.filter(i => i !== cardIndex));
+      } else {
+        if (selectedExchangeIndices.length >= 3) {
+          try { playSound('deselect'); } catch (_) {}
+          triggerPopup('Puoi cambiare al massimo 3 carte!');
+          return;
+        }
+        try { playSound('select'); } catch (_) {}
+        setSelectedExchangeIndices(prev => [...prev, cardIndex]);
+      }
+      return;
+    }
+
+    // 2. Se è il turno nemico e NON stiamo cambiando carte, blocca l'input
+    if (turn !== 'player1') return;
 
     const card = playerHand[cardIndex];
     if (!card) return;
+
 
 
     if (isSelectingDiscard) {
@@ -13971,22 +13946,29 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
 
 
 
-    if (selectedIndices.includes(cardIndex)) {
+        if (selectedIndices.includes(cardIndex)) {
       try { playSound('deselect'); } catch (_) {}
       setHasDeselectedThisTurn(true);
       const nextIndices = selectedIndices.filter(i => i !== cardIndex);
       setSelectedIndices(nextIndices);
       broadcastLiveSelection(nextIndices);
-    } else {
+       } else {
+      if (selectedIndices.length >= 5) {
+        try { playSound('deselect'); } catch (_) {}
+        triggerPopup("Massimo 5 carte per combinazione sul banco!");
+        return;
+      }
       try { playSound('select'); } catch (_) {}
       const nextIndices = [...selectedIndices, cardIndex];
       setSelectedIndices(nextIndices);
       broadcastLiveSelection(nextIndices);
     }
+
+
   };
 
-            const handlePassTurn = () => {
-    if (turn !== 'player1' || playerSkipNextTurn) return;
+              const handlePassTurn = () => {
+    if (turn !== 'player1' || isSelectingDiscard || playerSkipNextTurn) return;
 
     setResonanceStreak(0);
     setPlayerTimeBurnActive(false);
@@ -13996,45 +13978,39 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
     checkAndTriggerTerrainCards('hand_stagnation', true);
     try { playSound('click'); } catch (_) {}
 
-    // Ripescaggio automatico fino a quota 7 carte (o dimensione mazzo con tratti)
-    let extraDraw = 0;
-    playerTraits.forEach(t => {
-      if (t.type === 'pass_draw_boost') extraDraw += (t.bonus || 1);
-      if (t.type === 'pass_heal_pct') {
-        const healAmt = Math.round((maxPlayerHp || 50) * (t.bonusPct || 0.05));
-        setPlayerHp(h => Math.min(maxPlayerHp || 50, h + healAmt));
-        triggerFloatingText(`+${healAmt} HP (RIGENERAZIONE)`, '#10b981', 'bottom-left');
-      }
-    });
-
-    const sizeTrait = playerTraits.find(t => t.type === 'hand_size_bonus');
-    const targetSize = (sizeTrait ? (sizeTrait.size || 8) : 7) + extraDraw;
-    const refilled = refillHandToTargetSize(playerHandRef.current, playerDeckRef.current, playerDiscardRef.current, targetSize);
-
-    playerHandRef.current = refilled.newHand;
-    playerDeckRef.current = refilled.newDeck;
-    playerDiscardRef.current = refilled.newDiscard;
-    setPlayerHand(refilled.newHand);
-    setPlayerDeck(refilled.newDeck);
-    setPlayerDiscard(refilled.newDiscard);
-
-    setSelectedIndices([]);
-    setSelectedTrisHandIndices([]);
-    setVectorNucleus(null);
-    setIsExchangeMode(false);
-    setSelectedExchangeIndices([]);
-    setIsSelectingDiscard(false);
-
-    triggerPopup("Turno ceduto all'avversario.");
-    if (isRealPvP && db && pvpMeta?.roomId) {
-      update(ref(db, `rooms/${pvpMeta.roomId}`), {
-        turn: pvpMeta.opponent.id,
-        lastAction: { by: pvpMeta.myPlayerId, desc: "Passa Turno", timestamp: Date.now() }
+    // Se la mano è già vuota, ripesca direttamente a 7 e passa
+    if (playerHand.length === 0) {
+      let extraDraw = 0;
+      playerTraits.forEach(t => {
+        if (t.type === 'pass_draw_boost') extraDraw += (t.bonus || 1);
+        if (t.type === 'pass_heal_pct') {
+          const healAmt = Math.round((maxPlayerHp || 50) * (t.bonusPct || 0.05));
+          setPlayerHp(h => Math.min(maxPlayerHp || 50, h + healAmt));
+          triggerFloatingText(`+${healAmt} HP (RIGENERAZIONE)`, '#10b981', 'bottom-left');
+        }
       });
-    } else {
+
+      const sizeTrait = playerTraits.find(t => t.type === 'hand_size_bonus');
+      const targetSize = (sizeTrait ? (sizeTrait.size || 8) : 7) + extraDraw;
+      const refilled = refillHandToTargetSize([], playerDeckRef.current, playerDiscardRef.current, targetSize);
+      playerHandRef.current = refilled.newHand;
+      playerDeckRef.current = refilled.newDeck;
+      playerDiscardRef.current = refilled.newDiscard;
+      setPlayerHand(refilled.newHand);
+      setPlayerDeck(refilled.newDeck);
+      setPlayerDiscard(refilled.newDiscard);
+
+      triggerPopup("Mano vuota: ripescaggio completato e turno ceduto.");
       setTurn('ai');
+      return;
     }
+
+    // Attiva la fase di Scarica / Scarto prima di passare
+    setIsTruePassTurn(true);
+    setIsSelectingDiscard(true);
+    triggerPopup("PASSA TURNO!\n⚡ SCARICA: tocca 1 carta in mano per sacrificare il suo seme!");
   };
+
 
 
 
@@ -14056,10 +14032,11 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
       setAiHp(prev => Math.min(maxAiHp || 50, prev + 3));
       penaltyDetails.push("+3 HP Nemico");
     }
-    if (count >= 2 && !noTimeLoss) {
-      setTimer(prev => Math.max(1, prev - 3));
-      penaltyDetails.push("-3s Timer");
-    }
+             if (count >= 2 && !noTimeLoss) {
+           setPlayerTimeTank(prev => Math.max(0, prev - 3));
+           penaltyDetails.push("-3s Serbatoio Tempo");
+         }
+
      if (count >= 3 && !noSelfDmg) {
       triggerPlayerDamageFx();
       setPlayerHp(prev => Math.max(0, prev - 3));
@@ -14113,33 +14090,30 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
   };
 
 
-      const handleOpenExchangeMode = useCallback(() => {
-    if (isExchangeBlockedByModifier) {
-      try { playSound('deselect'); } catch (_) {}
-      triggerPopup('Cambio carte bloccato dalle anomalie di questo settore!');
-      return;
-    }
-    // Regola Tempi Morti: il cambio è vietato durante il proprio turno di attacco
-    if (turn === 'player1') {
-      try { playSound('deselect'); } catch (_) {}
-      triggerPopup('Il cambio carte è consentito solo nei tempi morti durante il turno avversario!');
-      return;
-    }
-    // Verifica tetto massimo di 2 cambi per turno nemico
+            const handleOpenExchangeMode = useCallback((initialCardIdx = null) => {
     if (downtimeExchangesLeft <= 0) {
       try { playSound('deselect'); } catch (_) {}
-      triggerPopup('Hai già esaurito i 2 cambi consentiti per questo turno nemico!');
+      triggerPopup('Hai già esaurito i 2 cambi per questo turno nemico!');
       return;
     }
-    if (isSelectingDiscard || playerSkipNextTurn) return;
 
     try { playSound('click'); } catch (_) {}
+    setIsSelectingDiscard(false);
     setSelectedIndices([]);
     setSelectedTrisHandIndices([]);
     setSelectedVectorCardIndex(null);
-    setSelectedExchangeIndices([]);
+    setSelectedExchangeIndices(initialCardIdx !== null ? [initialCardIdx] : []);
     setIsExchangeMode(true);
-  }, [isExchangeBlockedByModifier, turn, downtimeExchangesLeft, isSelectingDiscard, playerSkipNextTurn, triggerPopup]);
+  }, [downtimeExchangesLeft, triggerPopup]);
+
+
+
+  const handleCancelExchangeMode = useCallback(() => {
+    try { playSound('deselect'); } catch (_) {}
+    setSelectedExchangeIndices([]);
+    setIsExchangeMode(false);
+  }, []);
+
 
 
 
@@ -15192,8 +15166,10 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
     if (!attackPayload || turn !== 'player1' || winner || showReviveModal || playerSkipNextTurn) return;
 
     try {
-            const { resolvedObj, damage: baseDamageToAi, usedCards, targetIndex: attackedTargetIndex } = attackPayload;
-      if (!usedCards || usedCards.length < 2) return;
+                        const { resolvedObj, damage: baseDamageToAi, usedCards, targetIndex: attackedTargetIndex } = attackPayload;
+      if (!usedCards || usedCards.length < 2 || usedCards.length > 5) return;
+
+
 
 
       let riftBonusDamage = 0;
@@ -15382,7 +15358,7 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
         triggerFloatingText(`-${finalDamage} HP`, '#ef4444', 'top-right');
       }
 
-            // Le carte usate vanno direttamente nella pila degli scarti
+                 // Le carte usate per fare fuoco vanno nella pila degli scarti
       const updatedDiscard = [...playerDiscardRef.current, ...usedCards];
       playerDiscardRef.current = updatedDiscard;
       setPlayerDiscard(updatedDiscard);
@@ -15393,11 +15369,10 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
 
       onScoreSuccess(true, finalDamage);
 
-      // Ripescaggio automatico dal mazzo: riporta la mano a quota 7 carte (o dimensione mazzo)
+            // FASE DI FINE TURNO CLASSICA: ATTACCA E PASSA SUBITO ALL'AVVERSARIO
       const sizeTrait = playerTraits.find(t => t.type === 'hand_size_bonus');
       const targetSize = (sizeTrait ? (sizeTrait.size || 8) : 7) + riftExtraDraw;
       const refilled = refillHandToTargetSize(playerHandRef.current, playerDeckRef.current, updatedDiscard, targetSize);
-      
       playerHandRef.current = refilled.newHand;
       playerDeckRef.current = refilled.newDeck;
       playerDiscardRef.current = refilled.newDiscard;
@@ -15405,9 +15380,14 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
       setPlayerDeck(refilled.newDeck);
       setPlayerDiscard(refilled.newDiscard);
 
-      if (nextAiHp > 0 && !isEclipseStormActive) {
+      setIsSelectingDiscard(false);
+
+      if (nextAiHp > 0) {
+        // Passa immediatamente il turno al nemico: inizia il turno di riposo
         setTurn('ai');
       }
+
+
 
 
     } catch (err) {
@@ -16279,7 +16259,9 @@ const playExpression = async (payload) => {
           selectedAbility={effectivePlayerAbilityId}
           abilities={abilities}
           level={level}
-                    playerHand={playerHand}
+                              tableSlots={tableSlots}
+          setTableSlots={setTableSlots}
+          playerHand={playerHand}
           setPlayerHand={setPlayerHand}
           playerDeck={playerDeck}
           playerDiscard={playerDiscard}
@@ -16291,19 +16273,24 @@ const playExpression = async (payload) => {
     pistonOverrideActive={pistonOverrideActive}
     pistonOverrideDamage={pistonOverrideDamage}
 
+
                     handlePassTurn={handlePassTurn}
-          isExchangeMode={isExchangeMode}
+                    isExchangeMode={isExchangeMode}
           setIsExchangeMode={setIsExchangeMode}
           handleOpenExchangeMode={handleOpenExchangeMode}
+          handleCancelExchangeMode={handleCancelExchangeMode}
           selectedExchangeIndices={selectedExchangeIndices}
+
           confirmCardExchange={confirmCardExchange}
           setShowAbandonConfirm={setShowAbandonConfirm}
           setShowDeckExtractModal={setShowDeckExtractModal}
           isSelectingDiscard={isSelectingDiscard}
           hasExchangedThisTurn={downtimeExchangesLeft <= 0}
           downtimeExchangesLeft={downtimeExchangesLeft}
-          weaponTanks={weaponTanks}
+                    weaponTanks={weaponTanks}
           setWeaponTanks={setWeaponTanks}
+          aiWeaponTanks={aiWeaponTanks}
+
           isExchangeBlockedByModifier={isExchangeBlockedByModifier}
           turn={turn}
           isBombAllowed={isBombAllowed}
@@ -17216,7 +17203,26 @@ function App() {
     }
   });
 
-  // STATI LOADOUT 4 HARDPOINT (2 POKER + 2 CALCOLO) & LIVELLI
+    // STATI ARMI SBLOCCATE, LOADOUT 4 HARDPOINT E LIVELLI
+  const [unlockedWeapons, setUnlockedWeapons] = useState(() => {
+    try {
+      const saved = localStorage.getItem('eclissi_unlocked_weapons');
+      return saved ? JSON.parse(saved) : {
+        wp_gatling: true,
+        wp_xbow: true,
+        wp_thunderstrike: true,
+        wp_orbital_cannon: true
+      };
+    } catch (_) {
+      return {
+        wp_gatling: true,
+        wp_xbow: true,
+        wp_thunderstrike: true,
+        wp_orbital_cannon: true
+      };
+    }
+  });
+
   const [equippedWeapons, setEquippedWeapons] = useState(() => {
     try {
       const saved = localStorage.getItem('eclissi_equipped_weapons');
@@ -17235,6 +17241,10 @@ function App() {
     }
   });
 
+    useEffect(() => {
+    localStorage.setItem('eclissi_unlocked_weapons', JSON.stringify(unlockedWeapons));
+  }, [unlockedWeapons]);
+
   useEffect(() => {
     localStorage.setItem('eclissi_equipped_weapons', JSON.stringify(equippedWeapons));
   }, [equippedWeapons]);
@@ -17242,6 +17252,8 @@ function App() {
   useEffect(() => {
     localStorage.setItem('eclissi_weapons_levels', JSON.stringify(weaponsLevels));
   }, [weaponsLevels]);
+
+
 
   
   
@@ -17767,13 +17779,28 @@ function App() {
 
   const hasCompletedSector1 = useMemo(() => ((unlockedLevels?.[1] || 1) > 1) || (maxUnlockedPlanet > 1), [unlockedLevels, maxUnlockedPlanet]);
 
-  // =========================================================================
+    // =========================================================================
   // CALLBACKS & HANDLERS
   // =========================================================================
-    const triggerPopup = useCallback((msg) => {
+  const triggerPopup = useCallback((msg) => {
     setPopupMsg(msg);
     setTimeout(() => setPopupMsg(null), 2500);
   }, []);
+
+  const handleUnlockWeapon = useCallback((weaponId, cost = {}) => {
+    const dustCost = cost.dust || 0;
+    const diaCost = cost.diamonds || 0;
+    if (stardust < dustCost || diamonds < diaCost) {
+      triggerPopup("Risorse insufficienti per sbloccare quest'arma!");
+      return;
+    }
+    try { playSound('ability'); } catch (_) {}
+    if (dustCost > 0) setStardust(s => s - dustCost);
+    if (diaCost > 0) setDiamonds(d => d - diaCost);
+    setUnlockedWeapons(prev => ({ ...prev, [weaponId]: true }));
+    triggerPopup("Nuova Arma sbloccata ed equipaggiabile!");
+  }, [stardust, diamonds, triggerPopup]);
+
 
     // TICKER AUTOMATICO CANTIERE CON CONTROLLO IMMEDIATO AL BOOT
   useEffect(() => {
@@ -21134,7 +21161,10 @@ function App() {
           onSelectAbility={(id) => setSelectedAbility(id)}
           onUpgradeAbility={(id) => upgradeAbilityWithDust(id)}
                               allDecks={typeof ALL_ABILITIES !== 'undefined' ? ALL_ABILITIES : []}
-          allAbilities={typeof ALL_ABILITIES !== 'undefined' ? ALL_ABILITIES : []}
+                    allAbilities={typeof ALL_ABILITIES !== 'undefined' ? ALL_ABILITIES : []}
+          weaponsDatabase={typeof WEAPONS_DATABASE !== 'undefined' ? WEAPONS_DATABASE : []}
+          unlockedWeapons={unlockedWeapons}
+          onUnlockWeapon={handleUnlockWeapon}
           equippedWeapons={equippedWeapons}
           weaponsLevels={weaponsLevels}
           onEquipWeapon={(slotIdx, weaponId) => {
@@ -21145,6 +21175,7 @@ function App() {
             });
           }}
           onUpgradeWeapon={(weaponId, targetLvl, cost) => {
+
             if (stardust < (cost.dust || 0) || voidCrystals < (cost.voidCrystals || 0) || primordialMatter < (cost.primordialMatter || 0)) {
               triggerPopup("Risorse insufficienti per potenziare l'arma!");
               return;
@@ -21223,7 +21254,7 @@ function App() {
         />
       )}
 
-                  {/* MODALE BAZAR GALATTICO UNIFICATO (6 TABS) */}
+                                    {/* MODALE BAZAR GALATTICO UNIFICATO (6 TABS) */}
       {showUnifiedShop && (
         <ShopModal
           initialTab={unifiedShopDefaultTab}
@@ -21242,9 +21273,12 @@ function App() {
           selectedAbility={selectedAbility}
           abilities={abilities}
           allAbilities={typeof ALL_ABILITIES !== 'undefined' ? ALL_ABILITIES : []}
-                    onSelectAbility={(id) => setSelectedAbility(id)}
+          onSelectAbility={(id) => setSelectedAbility(id)}
           onUnlockAbility={(id) => unlockAbilityWithDust(id)}
           onUpgradeAbility={(id) => upgradeAbilityWithDust(id)}
+          weaponsDatabase={typeof WEAPONS_DATABASE !== 'undefined' ? WEAPONS_DATABASE : []}
+          unlockedWeapons={unlockedWeapons}
+          onUnlockWeapon={handleUnlockWeapon}
           equippedWeapons={equippedWeapons}
           weaponsLevels={weaponsLevels}
           onEquipWeapon={(slotIdx, weaponId) => {
@@ -21255,6 +21289,7 @@ function App() {
             });
           }}
                     onUpgradeWeapon={(weaponId, targetLvl, cost) => {
+
             if (stardust < (cost.dust || 0) || voidCrystals < (cost.voidCrystals || 0) || primordialMatter < (cost.primordialMatter || 0)) {
               triggerPopup("Risorse insufficienti per potenziare l'arma!");
               return;

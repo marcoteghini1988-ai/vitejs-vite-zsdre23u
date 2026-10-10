@@ -2,159 +2,8 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { playSound } from './audio';
 import { TacticalVisual, ModuleIcon, TerrainVisual } from './visualAssets';
 import { PilotPortraitVisual, checkPilotSetResonance } from './pilotsSystem';
+import { WEAPONS_DATABASE } from './weaponsSystem';
 
-// ============================================================================
-// DATABASE ARMI HARDPOINT COMPLETO & SINERGICO
-// ============================================================================
-export const WEAPONS_DATABASE = Object.freeze([
-  // ARMI DI DEFAULT / INIZIALI
-  {
-    id: 'wp_gatling',
-    name: 'Gatling',
-    suit: 'spades',
-    suitSymbol: '♠',
-    slotType: 'poker',
-    type: 'poker',
-    pattern: 'one_pair',
-    allowedPatterns: ['one_pair'],
-    reqDescription: 'COPPIA',
-    icon: '⚙️',
-    maxSalvo: 10,
-    baseDamage: 2,
-    color: '#a855f7',
-    maxShots: 3,
-    cooldownDuration: 1,
-    levels: { 1: { damage: 2 }, 2: { damage: 3 }, 3: { damage: 4 }, 4: { damage: 5 } }
-  },
-  {
-    id: 'wp_xbow',
-    name: 'Sifone',
-    suit: 'hearts',
-    suitSymbol: '♥',
-    slotType: 'poker',
-    type: 'poker',
-    pattern: 'three_of_a_kind',
-    allowedPatterns: ['three_of_a_kind'],
-    reqDescription: 'TRIS',
-    icon: '🩸',
-    maxSalvo: 10,
-    baseDamage: 2,
-    color: '#ef4444',
-    maxShots: 2,
-    cooldownDuration: 2,
-    levels: { 1: { damage: 2 }, 2: { damage: 3 }, 3: { damage: 4 }, 4: { damage: 5 } }
-  },
-  {
-    id: 'wp_thunderstrike',
-    name: 'Plasma',
-    suit: 'diamonds',
-    suitSymbol: '♦',
-    slotType: 'math',
-    type: 'math',
-    mathOp: '+',
-    target: 14,
-    reqDescription: '[+] 14',
-    icon: '⚡',
-    maxSalvo: 15,
-    baseDamage: 2,
-    color: '#06b6d4',
-    maxShots: 3,
-    cooldownDuration: 1,
-    levels: { 1: { damage: 2 }, 2: { damage: 3 }, 3: { damage: 4 }, 4: { damage: 5 } }
-  },
-  {
-    id: 'wp_orbital_cannon',
-    name: 'Orbitale',
-    suit: 'clubs',
-    suitSymbol: '♣',
-    slotType: 'math',
-    type: 'math',
-    mathOp: '*',
-    target: 24,
-    reqDescription: '[*] 24',
-    icon: '🌌',
-    maxSalvo: 15,
-    baseDamage: 2,
-    color: '#10b981',
-    maxShots: 2,
-    cooldownDuration: 2,
-    levels: { 1: { damage: 2 }, 2: { damage: 3 }, 3: { damage: 4 }, 4: { damage: 5 } }
-  },
-
-  // ARMI SBLOCCABILI AGGIUNTIVE (SHOP / PROGRESSIONE)
-  {
-    id: 'wp_railgun',
-    name: 'Cannone Railgun',
-    suit: 'spades',
-    suitSymbol: '♠',
-    slotType: 'math',
-    type: 'math',
-    mathOp: '-',
-    target: 5,
-    reqDescription: '[-] 5',
-    icon: '🎯',
-    maxSalvo: 12,
-    baseDamage: 3,
-    color: '#c084fc',
-    maxShots: 2,
-    cooldownDuration: 2,
-    levels: { 1: { damage: 3 }, 2: { damage: 4 }, 3: { damage: 5 }, 4: { damage: 6 } }
-  },
-  {
-    id: 'wp_thermal_laser',
-    name: 'Laser Termico',
-    suit: 'hearts',
-    suitSymbol: '♥',
-    slotType: 'math',
-    type: 'math',
-    mathOp: '/',
-    target: 2,
-    reqDescription: '[/] 2',
-    icon: '🔥',
-    maxSalvo: 8,
-    baseDamage: 4,
-    color: '#f43f5e',
-    maxShots: 2,
-    cooldownDuration: 1,
-    levels: { 1: { damage: 4 }, 2: { damage: 5 }, 3: { damage: 6 }, 4: { damage: 7 } }
-  },
-  {
-    id: 'wp_quantum_blaster',
-    name: 'Disgregatore',
-    suit: 'diamonds',
-    suitSymbol: '♦',
-    slotType: 'poker',
-    type: 'poker',
-    pattern: 'two_pair',
-    allowedPatterns: ['two_pair'],
-    reqDescription: 'DOPPIA COPPIA',
-    icon: '💎',
-    maxSalvo: 12,
-    baseDamage: 3,
-    color: '#00f2fe',
-    maxShots: 2,
-    cooldownDuration: 2,
-    levels: { 1: { damage: 3 }, 2: { damage: 4 }, 3: { damage: 5 }, 4: { damage: 6 } }
-  },
-  {
-    id: 'wp_tachyon_torpedo',
-    name: 'Siluro Tachionico',
-    suit: 'clubs',
-    suitSymbol: '♣',
-    slotType: 'poker',
-    type: 'poker',
-    pattern: 'straight',
-    allowedPatterns: ['straight'],
-    reqDescription: 'SCALA',
-    icon: '🌠',
-    maxSalvo: 10,
-    baseDamage: 3,
-    color: '#34d399',
-    maxShots: 1,
-    cooldownDuration: 2,
-    levels: { 1: { damage: 3 }, 2: { damage: 4 }, 3: { damage: 5 }, 4: { damage: 6 } }
-  }
-]);
 
 
 
@@ -1600,7 +1449,7 @@ export const calculateAiTurnClassic = (aiHand, objectives, activeAnomaly = null)
       box-shadow: 0 5px 0 #1c1102, 0 6px 0 #000, 0 12px 16px rgba(0, 0, 0, 0.95);
     }
 
-    .battle-viewport-classic .tactile-btn-pass {
+        .battle-viewport-classic .tactile-btn-pass {
       flex: 0.8;
       background: linear-gradient(180deg, #475569 0%, #1e293b 45%, #080c14 100%);
       border-color: #64748b;
@@ -1608,6 +1457,16 @@ export const calculateAiTurnClassic = (aiHand, objectives, activeAnomaly = null)
       color: #ffffff;
       box-shadow: 0 5px 0 #080c14, 0 6px 0 #000, 0 12px 16px rgba(0, 0, 0, 0.95);
     }
+    .battle-viewport-classic .tactile-btn-pass:disabled {
+      background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+      border-color: #334155;
+      border-top: 2px solid #475569;
+      color: #64748b;
+      opacity: 0.45;
+      cursor: not-allowed;
+      box-shadow: 0 3px 0 #080c14;
+    }
+
 
     .battle-viewport-classic .player-hp-dock-bottom {
       display: flex;
@@ -1793,7 +1652,10 @@ export default function ClassicBattleView({
   tableSlots = [null, null, null, null, null],
   setTableSlots,
   setPlayerHand,
+  setPlayerDiscard,
   equippedWeapons = ['wp_gatling', 'wp_xbow', 'wp_thunderstrike', 'wp_orbital_cannon'],
+
+
 
   weaponsLevels = { wp_gatling: 1, wp_xbow: 1, wp_thunderstrike: 1, wp_orbital_cannon: 1 },
   riftState,
@@ -1890,32 +1752,30 @@ export default function ClassicBattleView({
   isBombAllowed = false,
   t
 }) {
-    const [scale, setScale] = useState(1);
+        const [scale, setScale] = useState(1);
   const [selectedIndices, setSelectedIndices] = useState([]);
   const [selectedHardpointIndex, setSelectedHardpointIndex] = useState(0);
   const [cardsPlayedThisTurn, setCardsPlayedThisTurn] = useState(0);
+  const cardsPlayedThisTurnRef = useRef(0);
+  const [selectedHandToReplaceIdx, setSelectedHandToReplaceIdx] = useState(null);
 
   useEffect(() => {
     if (turn === 'player1') {
       setCardsPlayedThisTurn(0);
+      cardsPlayedThisTurnRef.current = 0;
+      setSelectedHandToReplaceIdx(null);
     }
   }, [turn]);
-
 
   const currentGlobalSector = isAdv ? ((currentAdvPlanet - 1) * 10 + currentAdvLevel) : 100;
   const isSlot2Unlocked = !isAdv || isPvP || currentGlobalSector >= 6;
   const isSlot4Unlocked = !isAdv || isPvP || currentGlobalSector >= 6;
 
-    const [draggedCardHandIdx, setDraggedCardHandIdx] = useState(null);
-
+  const [draggedCardHandIdx, setDraggedCardHandIdx] = useState(null);
   const [hoveredSlotIdx, setHoveredSlotIdx] = useState(null);
 
-  const [weaponHeatState, setWeaponHeatState] = useState({
-    wp_gatling: { heat: 0, shotsFired: 0, cooldownTurns: 0 },
-    wp_xbow: { heat: 0, shotsFired: 0, cooldownTurns: 0 },
-    wp_thunderstrike: { heat: 0, shotsFired: 0, cooldownTurns: 0 },
-    wp_orbital_cannon: { heat: 0, shotsFired: 0, cooldownTurns: 0 }
-  });
+    const [weaponHeatState, setWeaponHeatState] = useState({});
+
 
   const prevTurnHeatRef = useRef(turn);
   useEffect(() => {
@@ -1936,75 +1796,184 @@ export default function ClassicBattleView({
     prevTurnHeatRef.current = turn;
   }, [turn]);
 
-  // DRAG & DROP: Inizio trascinamento carta dalla mano
-  const handleDragStart = (e, handIdx) => {
-    if (turn !== 'player1' || isSelectingDiscard || isExchangeMode) {
-      e.preventDefault();
-      return;
-    }
-    setDraggedCardHandIdx(handIdx);
-    e.dataTransfer.setData('text/plain', String(handIdx));
-    try { playSound('select'); } catch (_) {}
-  };
+    // STATO TRASCINAMENTO CON REF PER EVITARE RITARDI DI CHIUSURA (Touch & Mouse)
+  const [activeDrag, setActiveDrag] = useState(null);
+  const activeDragRef = useRef(null);
 
-    // DRAG & DROP: Rilascio carta su uno slot del banco (Riempimento o Sostituzione)
-  const handleDropOnSlot = (e, targetSlotIdx) => {
-    e.preventDefault();
-    setHoveredSlotIdx(null);
-    if (turn !== 'player1' || isSelectingDiscard || isExchangeMode || cardsPlayedThisTurn >= 3) {
-      try { playSound('deselect'); } catch (_) {}
-      return;
-    }
+  // Rileva lo slot corretto calcolando la distanza sia dal dito sia dalla carta visiva sollevata
+  const findSlotAt = (touchX, touchY) => {
+    if (typeof document === 'undefined') return null;
+    const slotElements = document.querySelectorAll('[data-table-slot]');
+    if (!slotElements || slotElements.length === 0) return null;
 
+    let bestSlot = null;
+    let minDistance = Infinity;
 
-    const handIdx = draggedCardHandIdx !== null ? draggedCardHandIdx : Number(e.dataTransfer.getData('text/plain'));
-    if (handIdx === null || isNaN(handIdx)) return;
+    // Poiché la carta visiva fluttua 45px sopra il dito, testiamo sia il dito che il centro della carta
+    const testPoints = [
+      { x: touchX, y: touchY },
+      { x: touchX, y: touchY - 45 }
+    ];
 
-    const cardToPlace = playerHand?.[handIdx];
-    if (!cardToPlace) return;
+    for (let i = 0; i < slotElements.length; i++) {
+      const el = slotElements[i];
+      const rect = el.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
 
-    const currentTargetCard = tableSlots[targetSlotIdx];
-    const hasEmptySlots = tableSlots.some(s => s === null);
+      for (const pt of testPoints) {
+        const dx = pt.x - centerX;
+        const dy = pt.y - centerY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
 
-    // Regola anti-stallo: se ci sono slot vuoti, non puoi sovrascrivere direttamente una carta esistente
-    if (currentTargetCard !== null && hasEmptySlots) {
-      try { playSound('deselect'); } catch (_) {}
-      return;
-    }
-
-    try { playSound('card_slide'); } catch (_) {}
-
-    const suit = getCardSuit(cardToPlace);
-    const val = Number(cardToPlace.value) || 0;
-    if (suit && typeof setWeaponTanks === 'function') {
-      setWeaponTanks(prev => ({ ...prev, [suit]: (prev[suit] || 0) + val }));
-    }
-
-    // Se stiamo sostituendo una carta (banco pieno), la vecchia va negli scarti
-    if (currentTargetCard !== null) {
-      const oldSuit = getCardSuit(currentTargetCard);
-      const oldVal = Number(currentTargetCard.value) || 0;
-      if (oldSuit && typeof setWeaponTanks === 'function') {
-        setWeaponTanks(prev => ({ ...prev, [oldSuit]: Math.max(0, (prev[oldSuit] || 0) - oldVal) }));
+        // Raggio di aggancio generoso di 80px
+        if (dist < 80 && dist < minDistance) {
+          minDistance = dist;
+          bestSlot = Number(el.getAttribute('data-table-slot'));
+        }
       }
     }
+    return bestSlot;
+  };
 
-        // Posiziona irreversibilmente sul tavolo
-    setTableSlots(prev => {
-      const next = [...prev];
-      next[targetSlotIdx] = cardToPlace;
+  // Esecuzione posizionamento carta su slot (con protezione anti-sparizione)
+  const executePlaceCardOnSlot = (cardToPlace, targetSlotIdx) => {
+    if (!cardToPlace || targetSlotIdx === null || targetSlotIdx < 0 || targetSlotIdx > 4) return;
+    if (cardsPlayedThisTurnRef.current >= 3) return;
+
+    setTableSlots(prevTable => {
+      let finalSlot = targetSlotIdx;
+      const hasEmptySlots = prevTable.some(s => s === null);
+
+      // Protezione: se ci sono posti vuoti sul tavolo, non sovrascrivere una carta esistente!
+      if (hasEmptySlots && prevTable[finalSlot] !== null) {
+        const firstEmpty = prevTable.findIndex(s => s === null);
+        if (firstEmpty !== -1) finalSlot = firstEmpty;
+      }
+
+      const oldCard = prevTable[finalSlot];
+
+            // Sostituzione vera: scatta SOLO quando il tavolo è al completo (5/5)
+      if (oldCard !== null && oldCard !== undefined) {
+        if (typeof setPlayerDiscard === 'function') {
+          setPlayerDiscard(prevDisc => [...prevDisc, oldCard]);
+        }
+        const oldSuit = getCardSuit(oldCard);
+        const oldVal = Number(oldCard.value) || 0;
+        if (oldSuit && typeof setWeaponTanks === 'function') {
+          setWeaponTanks(prevTanks => {
+            const wpForSuit = resolvedWeapons.find(w => w.suit === oldSuit);
+            const cap = wpForSuit ? (wpForSuit.maxCapacity || wpForSuit.maxSalvo || 10) : 10;
+            const curVal = prevTanks[oldSuit] || 0;
+            return {
+              ...prevTanks,
+              [oldSuit]: Math.min(cap, curVal + oldVal)
+            };
+          });
+        }
+      }
+
+      const nextTable = [...prevTable];
+      nextTable[finalSlot] = cardToPlace;
+      return nextTable;
+    });
+
+    setCardsPlayedThisTurn(prev => {
+      const next = prev + 1;
+      cardsPlayedThisTurnRef.current = next;
       return next;
     });
 
-    setCardsPlayedThisTurn(prev => prev + 1);
-
-    // Rimuove definitivamente la carta dalla mano (irrevocabile)
+    // Rimuove SOLO la singola istanza calata, senza cancellare eventuali carte doppie in mano
     if (typeof setPlayerHand === 'function') {
-      setPlayerHand(prev => prev.filter((_, i) => i !== handIdx));
+      setPlayerHand(prevHand => {
+        const idxToRemove = prevHand.findIndex(c => c === cardToPlace || (c && c.id === cardToPlace.id));
+        if (idxToRemove === -1) return prevHand;
+        const next = [...prevHand];
+        next.splice(idxToRemove, 1);
+        return next;
+      });
     }
 
-    setDraggedCardHandIdx(null);
+
+    try { playSound('card_slide'); } catch (_) {}
   };
+
+  // Inizio trascinamento (Mouse o Dito Touch)
+  const handleCardPointerDown = (e, handIdx) => {
+    if (turn !== 'player1' || isSelectingDiscard || isExchangeMode) return;
+    if (cardsPlayedThisTurnRef.current >= 3) {
+      try { playSound('deselect'); } catch (_) {}
+      return;
+    }
+
+    const card = playerHand?.[handIdx];
+    if (!card) return;
+
+    try { playSound('select'); } catch (_) {}
+
+    const dragData = {
+      card,
+      handIdx,
+      x: e.clientX,
+      y: e.clientY,
+      hoveredSlot: null
+    };
+    activeDragRef.current = dragData;
+    setActiveDrag(dragData);
+  };
+
+  // Tracciamento continuo del movimento del dito o mouse
+  useEffect(() => {
+    if (!activeDrag) return;
+
+    const handlePointerMove = (e) => {
+      const x = e.clientX;
+      const y = e.clientY;
+      const slotIdx = findSlotAt(x, y);
+
+      if (activeDragRef.current) {
+        activeDragRef.current.x = x;
+        activeDragRef.current.y = y;
+        activeDragRef.current.hoveredSlot = slotIdx;
+      }
+
+      setActiveDrag(prev => (prev ? { ...prev, x, y, hoveredSlot: slotIdx } : null));
+    };
+
+    const handlePointerUp = (e) => {
+      const currentDrag = activeDragRef.current;
+      if (currentDrag) {
+        const dropX = (e && typeof e.clientX === 'number' && e.clientX > 0) ? e.clientX : currentDrag.x;
+        const dropY = (e && typeof e.clientY === 'number' && e.clientY > 0) ? e.clientY : currentDrag.y;
+
+        let targetSlot = findSlotAt(dropX, dropY);
+        if (targetSlot === null) {
+          targetSlot = currentDrag.hoveredSlot;
+        }
+
+        if (targetSlot !== null && !isNaN(targetSlot) && targetSlot >= 0 && targetSlot <= 4) {
+          executePlaceCardOnSlot(currentDrag.card, targetSlot);
+        }
+      }
+      activeDragRef.current = null;
+      setActiveDrag(null);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove, { passive: true });
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+    };
+  }, [activeDrag]);
+
+
+
+
 
 
 
@@ -2016,8 +1985,11 @@ export default function ClassicBattleView({
       const lvlData = def.levels?.[curLvl] || def.levels?.[1] || {};
       const isLocked = (slotIdx === 1 && !isSlot2Unlocked) || (slotIdx === 3 && !isSlot4Unlocked);
 
+            const maxCap = def.maxCapacity || def.maxSalvo || 10;
       return {
         ...def,
+        maxCapacity: maxCap,
+        maxSalvo: def.maxSalvo || maxCap,
         slotIdx,
         isLocked,
         currentLevel: curLvl,
@@ -2025,6 +1997,7 @@ export default function ClassicBattleView({
         themeColor: def.color || '#00f2fe',
         mathInfo: { op: def.mathOp || '+', target: def.target || 14, isBomb: false }
       };
+
     });
   }, [equippedWeapons, weaponsLevels, isSlot2Unlocked, isSlot4Unlocked]);
 
@@ -2049,29 +2022,36 @@ export default function ClassicBattleView({
 
     if (hits.length === 0) return null;
 
-    const calcWeaponDamage = (wp) => {
+            const calcWeaponDamage = (wp, comboCards) => {
       if (pistonOverrideActive) return pistonOverrideDamage;
-      const tankAmmo = weaponTanks[wp.suit] || 0;
-      const salvo = Math.min(tankAmmo, wp.maxSalvo || 10);
+      const maxCap = wp.maxCapacity || wp.maxSalvo || 10;
+      const storedAmmo = weaponTanks[wp.suit] || 0;
+      const addedAmmoFromCombo = (comboCards || [])
+        .filter(c => getCardSuit(c) === wp.suit)
+        .reduce((acc, c) => acc + (Number(c?.value) || 0), 0);
+      const totalAmmo = Math.min(maxCap, storedAmmo + addedAmmoFromCombo);
+      const salvo = Math.min(totalAmmo, wp.maxSalvo || maxCap);
       return salvo > 0 ? (wp.currentDamage * salvo) : wp.currentDamage;
     };
 
     const scenarios = [];
 
-    // Combinazioni simultanee a 2 armi
+    // Combinazioni simultanee a 2 armi (verifica disgiunta per istanza esatta)
     for (let i = 0; i < hits.length; i++) {
       for (let j = i + 1; j < hits.length; j++) {
         const hitA = hits[i];
         const hitB = hits[j];
         if (hitA.weaponIdx === hitB.weaponIdx) continue;
 
-        const idsA = new Set(hitA.cards.map(c => c.id));
-        const isDisjoint = !hitB.cards.some(c => idsA.has(c.id));
+        const setA = new Set(hitA.cards);
+        const isDisjoint = !hitB.cards.some(c => setA.has(c));
 
-        if (isDisjoint) {
-          const dmgA = calcWeaponDamage(hitA.weapon);
-          const dmgB = calcWeaponDamage(hitB.weapon);
+
+                if (isDisjoint) {
           const combinedCards = [...hitA.cards, ...hitB.cards];
+          const dmgA = calcWeaponDamage(hitA.weapon, combinedCards);
+          const dmgB = calcWeaponDamage(hitB.weapon, combinedCards);
+
           scenarios.push({
             isDual: true,
             weapons: [hitA.weapon, hitB.weapon],
@@ -2085,9 +2065,10 @@ export default function ClassicBattleView({
     }
 
     // Piani a singola arma
-    hits.forEach(hit => {
-      const dmg = calcWeaponDamage(hit.weapon);
+        hits.forEach(hit => {
+      const dmg = calcWeaponDamage(hit.weapon, hit.cards);
       scenarios.push({
+
         isDual: false,
         weapons: [hit.weapon],
         weaponIdx: hit.weaponIdx,
@@ -2098,12 +2079,17 @@ export default function ClassicBattleView({
       });
     });
 
-    scenarios.sort((a, b) => {
+        scenarios.sort((a, b) => {
       if (b.damage !== a.damage) return b.damage - a.damage;
-      return a.nominalSum - b.nominalSum;
+      // Priorità alla combinazione con più carte (Tris da 3 carte batte sempre Coppia da 2 carte)
+      if (b.participatingCards.length !== a.participatingCards.length) {
+        return b.participatingCards.length - a.participatingCards.length;
+      }
+      return b.nominalSum - a.nominalSum;
     });
 
     return scenarios[0] || null;
+
   }, [tableSlots, resolvedWeapons, weaponTanks, weaponHeatState, activeAnomaly, pistonOverrideActive, pistonOverrideDamage]);
 
   const prevTurnRef = useRef(turn);
@@ -2114,9 +2100,8 @@ export default function ClassicBattleView({
     prevTurnRef.current = turn;
   }, [turn]);
 
-    // Click carta dalla mano: gestisce Scarto, Cambio Carte nei tempi morti o inserimento nel banco
+         // Click/Tap carta dalla mano: supporta lo scarto/cambio e posa direttamente la carta nel primo slot vuoto del banco
   const handleCardClick = (idx) => {
-    // 1. Durante il cambio carte o lo scarto/scarica, inoltra direttamente ad App.js
     if (isExchangeMode || isSelectingDiscard) {
       if (typeof onCardClick === 'function') {
         onCardClick(idx);
@@ -2124,66 +2109,24 @@ export default function ClassicBattleView({
       return;
     }
 
-    // 2. Se è il turno nemico o hai già calato 3 carte in questo turno, blocca l'inserimento nel banco
-    if (turn !== 'player1' || cardsPlayedThisTurn >= 3) {
-      try { playSound('deselect'); } catch (_) {}
-      return;
-    }
+    if (turn === 'player1' && cardsPlayedThisTurnRef.current < 3) {
+      const card = playerHand?.[idx];
+      if (!card) return;
 
-    const card = playerHand?.[idx];
-    if (!card) return;
-
-    const emptySlotIdx = tableSlots.findIndex(s => s === null);
-    if (emptySlotIdx === -1) {
-      try { playSound('deselect'); } catch (_) {}
-      return;
-    }
-
-    try { playSound('select'); } catch (_) {}
-    const suit = getCardSuit(card);
-    const val = Number(card.value) || 0;
-    if (suit && typeof setWeaponTanks === 'function') {
-      setWeaponTanks(prev => ({ ...prev, [suit]: (prev[suit] || 0) + val }));
-    }
-
-    setTableSlots(prev => {
-      const next = [...prev];
-      next[emptySlotIdx] = card;
-      return next;
-    });
-
-    setCardsPlayedThisTurn(prev => prev + 1);
-
-    // Rimuove fisicamente la carta dalla mano mentre è allocata al banco
-    if (typeof setPlayerHand === 'function') {
-      setPlayerHand(prev => prev.filter((_, i) => i !== idx));
+      // Trova il primo slot vuoto disponibile sul banco comune
+      const emptySlotIdx = tableSlots.findIndex(s => s === null);
+      if (emptySlotIdx !== -1) {
+        executePlaceCardOnSlot(card, emptySlotIdx);
+      } else {
+        // Se il banco è al completo (5/5), seleziona la carta per la sostituzione
+        setSelectedHandToReplaceIdx(prev => prev === idx ? null : idx);
+        try { playSound('select'); } catch (_) {}
+      }
     }
   };
 
 
-  // Rimozione carta dal banco e restituzione immediata alla mano del giocatore
-  const handleReturnTableCard = (slotIdx) => {
-    if (turn !== 'player1' || isSelectingDiscard) return;
-    const card = tableSlots[slotIdx];
-    if (!card) return;
 
-    try { playSound('deselect'); } catch (_) {}
-    const suit = getCardSuit(card);
-    const val = Number(card.value) || 0;
-    if (suit && typeof setWeaponTanks === 'function') {
-      setWeaponTanks(prev => ({ ...prev, [suit]: Math.max(0, (prev[suit] || 0) - val) }));
-    }
-
-    setTableSlots(prev => {
-      const next = [...prev];
-      next[slotIdx] = null;
-      return next;
-    });
-
-    if (typeof setPlayerHand === 'function') {
-      setPlayerHand(prev => [...prev, card]);
-    }
-  };
 
   const scannerOn = Boolean(isScannerActive || scannerMode === 'FREE_FULL');
 
@@ -2367,12 +2310,16 @@ export default function ClassicBattleView({
   const abilityName = selectedAbility?.toUpperCase() || 'MODULO';
   const abilityLvl = Math.min(abilities?.[selectedAbility]?.level || 1, 9);
 
-  const cardsOnTableCount = tableSlots.filter(Boolean).length;
+    const cardsOnTableCount = tableSlots.filter(Boolean).length;
+
+  // Sistema flessibile: l'attacco è pronto non appena sul banco si forma una combinazione valida
   const isFireReady = Boolean(
     turn === 'player1' && 
     !isSelectingDiscard && 
     bestTrigger !== null
   );
+
+
 
   useEffect(() => {
     if (currentTut !== 'S1' || guidedStep === 0) return;
@@ -2409,7 +2356,7 @@ export default function ClassicBattleView({
   const isPilotResonant = checkPilotSetResonance(selectedPilot, selectedDeck, selectedAbility);
   const currentPilotLvl = pilotInventory?.[selectedPilot]?.level || 1;
 
-  const handleAttackExecute = (e) => {
+    const handleAttackExecute = (e) => {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
@@ -2420,42 +2367,69 @@ export default function ClassicBattleView({
       return;
     }
 
+
+
     const firingWeapons = bestTrigger.weapons || [bestTrigger.weapon];
     const { participatingCards, damage } = bestTrigger;
 
-        // Consuma le munizioni e gestisce i colpi/congelamento dell'arma
+                // Ricarica i serbatoi per tutte le carte giocate (inclusi doppi dello stesso seme) e consuma la salva
     if (typeof setWeaponTanks === 'function') {
       setWeaponTanks(prev => {
         const next = { ...prev };
-        firingWeapons.forEach(wp => {
-          const salvo = Math.min(next[wp.suit] || 0, wp.maxSalvo || 10);
-          next[wp.suit] = Math.max(0, (next[wp.suit] || 0) - salvo);
+
+        // 1. Tutte le carte della combinazione ricaricano il serbatoio fino al cap dell'arma
+        participatingCards.forEach(c => {
+          const s = getCardSuit(c);
+          const val = Number(c?.value) || 0;
+          if (s && next[s] !== undefined) {
+            const wpForSuit = resolvedWeapons.find(w => w.suit === s);
+            const cap = wpForSuit ? (wpForSuit.maxCapacity || wpForSuit.maxSalvo || 10) : 10;
+            next[s] = Math.min(cap, next[s] + val);
+          }
         });
+
+        // 2. Le armi che sparano consumano la propria salva specifica
+        firingWeapons.forEach(wp => {
+          const available = next[wp.suit] || 0;
+          const maxCap = wp.maxCapacity || wp.maxSalvo || 10;
+          const salvo = Math.min(available, wp.maxSalvo || maxCap);
+          next[wp.suit] = Math.max(0, available - salvo);
+        });
+
         return next;
       });
     }
 
-    // Incrementa contatore colpi e attiva congelamento se raggiunge maxShots
+        // Incrementa i colpi sparati leggendo la soglia maxShots e cooldownDuration della carta
     setWeaponHeatState(prevHeat => {
       const next = { ...prevHeat };
       firingWeapons.forEach(wp => {
-        const cur = next[wp.id] || { heat: 0, shotsFired: 0, cooldownTurns: 0 };
-        const shots = cur.shotsFired + 1;
-        const maxShots = wp.maxShots || 3;
-        if (shots >= maxShots) {
-          next[wp.id] = { ...cur, shotsFired: 0, cooldownTurns: wp.cooldownDuration || 1 };
+        const cur = next[wp.id] || { shotsFired: 0, cooldownTurns: 0 };
+        const nextShots = cur.shotsFired + 1;
+        const limit = wp.maxShots || 1;
+
+        if (nextShots >= limit) {
+          // Raggiunto il limite stabilito dalla carta: entra in stop per i turni previsti
+          next[wp.id] = {
+            shotsFired: 0,
+            cooldownTurns: wp.cooldownDuration || 1
+          };
           try { playSound('terrain_flip'); } catch (_) {}
         } else {
-          next[wp.id] = { ...cur, shotsFired: shots };
+          next[wp.id] = {
+            ...cur,
+            shotsFired: nextShots
+          };
         }
       });
       return next;
     });
 
 
-    // Rimuove dal banco SOLO le carte usate per fare fuoco. Le altre restano lì per il turno successivo
-    const partIds = new Set(participatingCards.map(c => c.id));
-    setTableSlots(prev => prev.map(c => (c && partIds.has(c.id) ? null : c)));
+    // Rimuove dal banco SOLO le istanze esatte delle carte usate per fare fuoco
+    const partSet = new Set(participatingCards);
+    setTableSlots(prev => prev.map(c => (c && partSet.has(c) ? null : c)));
+
 
     const attackDamage = pistonOverrideActive ? pistonOverrideDamage : damage;
     const primaryWeapon = firingWeapons[0];
@@ -2473,12 +2447,18 @@ export default function ClassicBattleView({
       usedCards: participatingCards
     };
 
-    try { playSound('click'); } catch (_) {}
+                try { playSound('click'); } catch (_) {}
+
+    setCardsPlayedThisTurn(0);
+    cardsPlayedThisTurnRef.current = 0;
+    setSelectedHandToReplaceIdx(null);
 
     if (typeof onAttack === 'function') {
       onAttack(payload);
     }
   };
+
+
   return (
     <div className="classic-screen-wrapper">
       {!showCinematicSplash && currentTut && turn === 'player1' && (
@@ -2707,11 +2687,22 @@ export default function ClassicBattleView({
           })}
         </div>
 
-        {/* 3. CAMPO CENTRALE: RAMPA INVARIATA, CARTE INCLINATE A 24° COME IL MAZZO */}
+                        {/* 3. CAMPO CENTRALE: RAMPA ALLARGATA NEI LATERALI ALTI */}
         <div className="trapezoid-ramp-hub" style={{ padding: '6px 8px', top: '-10px' }}>
-          <div className="trapezoid-ramp-surface" style={{ bottom: '-50px' }}>
+          <div
+            className="trapezoid-ramp-surface"
+            style={{
+              bottom: '-50px',
+              top: '-135px',
+              left: '-110px',
+              right: '-110px',
+              clipPath: 'polygon(0% 0%, 100% 0%, 91% 100%, 9% 100%)'
+            }}
+          >
             <div className="trapezoid-grid-lines"></div>
           </div>
+
+
 
           <div style={{
             position: 'relative',
@@ -2727,320 +2718,493 @@ export default function ClassicBattleView({
             transformStyle: 'preserve-3d'
           }}>
 
-            {/* FILA 1: ARMI AVVERSARIO (AI RISPETTIVI ANGOLI IN ALTO) */}
+                                    {/* FILA 1: ARMI AVVERSARIO CON CORNICE STILE FELTRO TAVOLO DA POKER */}
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',
-              width: 'calc(100% + 44px)',
-              margin: '0 -22px',
+              width: 'calc(100% + 40px)',
+              margin: '0 -20px',
               position: 'relative',
               top: '-8px',
               zIndex: 10,
               boxSizing: 'border-box'
             }}>
-              {/* Sinistra: Armi 1 e 2 Nemico (Picche, Cuori) */}
-              <div style={{ display: 'flex', gap: '5px' }}>
-                {resolvedWeapons.slice(0, 2).map((wp, wIdx) => {
-                  const storedBullets = (aiWeaponTanks && aiWeaponTanks[wp.suit]) || 0;
-                  return (
-                    <div
-                      key={`ai_wp_${wp.id || wIdx}`}
-                      style={{
-                        width: '44px',
-                        height: '60px',
-                        boxSizing: 'border-box',
-                        background: 'linear-gradient(165deg, rgba(38, 12, 26, 0.95), rgba(13, 2, 6, 0.98))',
-                        border: `1.5px solid ${wp.themeColor}`,
-                        borderRadius: '6px',
-                        padding: '2px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        boxShadow: '0 4px 10px rgba(0,0,0,0.85)'
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center', lineHeight: 1 }}>
-                        <span style={{ fontSize: '0.65rem', fontWeight: 900, color: wp.themeColor }}>{wp.suitSymbol}</span>
-                        <span style={{ fontSize: '0.42rem', fontWeight: 900, color: '#fca5a5', background: 'rgba(0,0,0,0.6)', padding: '1px 2px', borderRadius: '2px' }}>
-                          L.{effectiveAiDeckLevel || 1}
+              {/* Sinistra: Cornice Panno per SLOT ARMI POKER NEMICO (Picche ♠, Cuori ♥) */}
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                padding: '3px 4px 4px 4px',
+                borderRadius: '8px',
+                border: '1.5px solid rgba(255, 255, 255, 0.75)',
+                background: 'rgba(2, 6, 23, 0.75)',
+                boxShadow: '0 0 8px rgba(255, 255, 255, 0.25), inset 0 0 12px rgba(0, 0, 0, 0.85)',
+                boxSizing: 'border-box'
+              }}>
+                <div style={{
+                  fontSize: '0.44rem',
+                  fontFamily: 'Orbitron, sans-serif',
+                  fontWeight: 900,
+                  letterSpacing: '1px',
+                  color: '#ffffff',
+                  textShadow: '0 0 6px rgba(255, 255, 255, 0.6)',
+                  textTransform: 'uppercase',
+                  marginBottom: '3px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '3px',
+                  lineHeight: 1
+                }}>
+                  <span style={{ color: '#c084fc' }}>♠</span>
+                  <span style={{ color: '#f43f5e' }}>♥</span>
+                  <span>SLOT POKER</span>
+                </div>
+
+                <div style={{ display: 'flex', gap: '5px' }}>
+                  {resolvedWeapons.slice(0, 2).map((wp, wIdx) => {
+                    const storedBullets = (aiWeaponTanks && aiWeaponTanks[wp.suit]) || 0;
+                    return (
+                      <div
+                        key={`ai_wp_${wp.id || wIdx}`}
+                        style={{
+                          width: '44px',
+                          height: '60px',
+                          boxSizing: 'border-box',
+                          background: 'linear-gradient(165deg, rgba(38, 12, 26, 0.95), rgba(13, 2, 6, 0.98))',
+                          border: `1.5px solid ${wp.themeColor}`,
+                          borderRadius: '6px',
+                          padding: '2px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          boxShadow: '0 4px 10px rgba(0,0,0,0.85)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center', lineHeight: 1 }}>
+                          <span style={{ fontSize: '0.65rem', fontWeight: 900, color: wp.themeColor }}>{wp.suitSymbol}</span>
+                          <span style={{ fontSize: '0.42rem', fontWeight: 900, color: '#fca5a5', background: 'rgba(0,0,0,0.6)', padding: '1px 2px', borderRadius: '2px' }}>
+                            L.{effectiveAiDeckLevel || 1}
+                          </span>
+                        </div>
+                        <span style={{ fontSize: '0.85rem', lineHeight: 1 }}>{wp.icon}</span>
+                        <span style={{ fontSize: '0.44rem', fontWeight: 900, color: '#ffffff', lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '40px' }}>
+                          {wp.name}
                         </span>
+                                                <div style={{ fontSize: '0.40rem', fontWeight: 900, color: '#fde047', background: 'rgba(0,0,0,0.7)', padding: '1px 2px', borderRadius: '2px', lineHeight: 1 }}>
+                          📦 {storedBullets}/{wp.maxCapacity || wp.maxSalvo || 10}
+                        </div>
+
                       </div>
-                      <span style={{ fontSize: '0.85rem', lineHeight: 1 }}>{wp.icon}</span>
-                      <span style={{ fontSize: '0.44rem', fontWeight: 900, color: '#ffffff', lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '40px' }}>
-                        {wp.name}
-                      </span>
-                      <div style={{ fontSize: '0.40rem', fontWeight: 900, color: '#fde047', background: 'rgba(0,0,0,0.7)', padding: '1px 2px', borderRadius: '2px', lineHeight: 1 }}>
-                        📦 {storedBullets}/{wp.maxSalvo || 10}
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
 
-              {/* Destra: Armi 3 e 4 Nemico (Quadri, Fiori) */}
-              <div style={{ display: 'flex', gap: '5px' }}>
-                {resolvedWeapons.slice(2, 4).map((wp, wIdx) => {
-                  const storedBullets = (aiWeaponTanks && aiWeaponTanks[wp.suit]) || 0;
-                  return (
-                    <div
-                      key={`ai_wp_${wp.id || (wIdx + 2)}`}
-                      style={{
-                        width: '44px',
-                        height: '60px',
-                        boxSizing: 'border-box',
-                        background: 'linear-gradient(165deg, rgba(38, 12, 26, 0.95), rgba(13, 2, 6, 0.98))',
-                        border: `1.5px solid ${wp.themeColor}`,
-                        borderRadius: '6px',
-                        padding: '2px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        boxShadow: '0 4px 10px rgba(0,0,0,0.85)'
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center', lineHeight: 1 }}>
-                        <span style={{ fontSize: '0.65rem', fontWeight: 900, color: wp.themeColor }}>{wp.suitSymbol}</span>
-                        <span style={{ fontSize: '0.42rem', fontWeight: 900, color: '#fca5a5', background: 'rgba(0,0,0,0.6)', padding: '1px 2px', borderRadius: '2px' }}>
-                          L.{effectiveAiDeckLevel || 1}
+              {/* Destra: Cornice Panno per SLOT ARMI CALCOLO NEMICO (Quadri ♦, Fiori ♣) */}
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                padding: '3px 4px 4px 4px',
+                borderRadius: '8px',
+                border: '1.5px solid rgba(255, 255, 255, 0.75)',
+                background: 'rgba(2, 6, 23, 0.75)',
+                boxShadow: '0 0 8px rgba(255, 255, 255, 0.25), inset 0 0 12px rgba(0, 0, 0, 0.85)',
+                boxSizing: 'border-box'
+              }}>
+                <div style={{
+                  fontSize: '0.44rem',
+                  fontFamily: 'Orbitron, sans-serif',
+                  fontWeight: 900,
+                  letterSpacing: '1px',
+                  color: '#ffffff',
+                  textShadow: '0 0 6px rgba(255, 255, 255, 0.6)',
+                  textTransform: 'uppercase',
+                  marginBottom: '3px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '3px',
+                  lineHeight: 1
+                }}>
+                  <span style={{ color: '#00f2fe' }}>♦</span>
+                  <span style={{ color: '#10b981' }}>♣</span>
+                  <span>SLOT CALCOLO</span>
+                </div>
+
+                <div style={{ display: 'flex', gap: '5px' }}>
+                  {resolvedWeapons.slice(2, 4).map((wp, wIdx) => {
+                    const storedBullets = (aiWeaponTanks && aiWeaponTanks[wp.suit]) || 0;
+                    return (
+                      <div
+                        key={`ai_wp_${wp.id || (wIdx + 2)}`}
+                        style={{
+                          width: '44px',
+                          height: '60px',
+                          boxSizing: 'border-box',
+                          background: 'linear-gradient(165deg, rgba(38, 12, 26, 0.95), rgba(13, 2, 6, 0.98))',
+                          border: `1.5px solid ${wp.themeColor}`,
+                          borderRadius: '6px',
+                          padding: '2px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          boxShadow: '0 4px 10px rgba(0,0,0,0.85)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center', lineHeight: 1 }}>
+                          <span style={{ fontSize: '0.65rem', fontWeight: 900, color: wp.themeColor }}>{wp.suitSymbol}</span>
+                          <span style={{ fontSize: '0.42rem', fontWeight: 900, color: '#fca5a5', background: 'rgba(0,0,0,0.6)', padding: '1px 2px', borderRadius: '2px' }}>
+                            L.{effectiveAiDeckLevel || 1}
+                          </span>
+                        </div>
+                        <span style={{ fontSize: '0.85rem', lineHeight: 1 }}>{wp.icon}</span>
+                        <span style={{ fontSize: '0.44rem', fontWeight: 900, color: '#ffffff', lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '40px' }}>
+                          {wp.name}
                         </span>
+                                                <div style={{ fontSize: '0.40rem', fontWeight: 900, color: '#fde047', background: 'rgba(0,0,0,0.7)', padding: '1px 2px', borderRadius: '2px', lineHeight: 1 }}>
+                          📦 {storedBullets}/{wp.maxCapacity || wp.maxSalvo || 10}
+                        </div>
+
                       </div>
-                      <span style={{ fontSize: '0.85rem', lineHeight: 1 }}>{wp.icon}</span>
-                      <span style={{ fontSize: '0.44rem', fontWeight: 900, color: '#ffffff', lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '40px' }}>
-                        {wp.name}
-                      </span>
-                      <div style={{ fontSize: '0.40rem', fontWeight: 900, color: '#fde047', background: 'rgba(0,0,0,0.7)', padding: '1px 2px', borderRadius: '2px', lineHeight: 1 }}>
-                        📦 {storedBullets}/{wp.maxSalvo || 10}
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
-            {/* FILA 2: I 5 SLOT DEL BANCO (AL CENTRO) CON DRAG & DROP E IRREVERSIBILITÀ */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', width: '100%', zIndex: 10 }}>
-              {tableSlots.map((card, slotIdx) => {
-                const isSlotHovered = hoveredSlotIdx === slotIdx;
 
-                if (!card) {
+
+                                               {/* FILA 2: CORNICE BANCO COMUNE 5 CARTE STILE FELTRO TAVOLO DA POKER */}
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              padding: '4px 6px 5px 6px',
+              borderRadius: '8px',
+              border: '1.5px solid rgba(255, 255, 255, 0.75)',
+              background: 'rgba(2, 6, 23, 0.75)',
+              boxShadow: '0 0 8px rgba(255, 255, 255, 0.25), inset 0 0 12px rgba(0, 0, 0, 0.85)',
+              boxSizing: 'border-box',
+              zIndex: 10
+            }}>
+              {/* Serigrafia descrittiva stampata sul tavolo */}
+              <div style={{
+                fontSize: '0.44rem',
+                fontFamily: 'Orbitron, sans-serif',
+                fontWeight: 900,
+                letterSpacing: '1px',
+                color: '#ffffff',
+                textShadow: '0 0 6px rgba(255, 255, 255, 0.6)',
+                textTransform: 'uppercase',
+                marginBottom: '3px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                lineHeight: 1
+              }}>
+                <span style={{ color: '#facc15' }}>✦</span>
+                <span>BANCO COMUNE</span>
+                <span style={{ color: '#facc15' }}>✦</span>
+              </div>
+
+              {/* I 5 Slot dentro la cornice */}
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '6px' }}>
+                {tableSlots.map((card, slotIdx) => {
+                  const isHovered = activeDrag?.hoveredSlot === slotIdx;
+
+                  if (!card) {
+                    return (
+                      <div
+                        key={`empty_${slotIdx}`}
+                        data-table-slot={slotIdx}
+                        style={{
+                          width: '46px',
+                          height: '66px',
+                          borderRadius: '6px',
+                          border: isHovered ? '2.5px solid #00f2fe' : '1.5px dashed rgba(56, 189, 248, 0.45)',
+                          background: isHovered ? 'rgba(0, 242, 254, 0.32)' : 'rgba(15, 23, 42, 0.45)',
+                          boxShadow: isHovered ? '0 0 25px #00f2fe, 0 8px 20px rgba(0,0,0,0.9)' : 'none',
+                          transform: isHovered ? 'scale(1.35) translateY(-14px)' : 'none',
+                          zIndex: isHovered ? 100 : 5,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: isHovered ? '0.58rem' : '0.5rem',
+                          color: isHovered ? '#ffffff' : '#38bdf8',
+                          fontWeight: 900,
+                          fontFamily: 'Orbitron, sans-serif',
+                          transition: 'transform 0.16s cubic-bezier(0.2, 0.8, 0.4, 1.2), box-shadow 0.16s ease, border-color 0.16s ease'
+                        }}
+                      >
+                        {isHovered ? '📥 METTI QUI' : `SLOT ${slotIdx + 1}`}
+                      </div>
+                    );
+                  }
+
+                  const isFiring = bestTrigger?.participatingCards.some(c => c.id === card.id);
+                  const cardSuitVal = getCardSuit(card);
+                  const isRed = cardSuitVal === 'hearts' || cardSuitVal === 'diamonds';
+
                   return (
                     <div
-                      key={`empty_${slotIdx}`}
-                      className={isSlotHovered ? 'table-slot-drag-hover' : ''}
-                      onDragOver={(e) => { e.preventDefault(); setHoveredSlotIdx(slotIdx); }}
-                      onDragLeave={() => setHoveredSlotIdx(null)}
-                      onDrop={(e) => handleDropOnSlot(e, slotIdx)}
+                      key={card.id || slotIdx}
+                      data-table-slot={slotIdx}
                       style={{
                         width: '46px',
                         height: '66px',
                         borderRadius: '6px',
-                        border: '1.5px dashed rgba(56, 189, 248, 0.45)',
-                        background: 'rgba(15, 23, 42, 0.45)',
+                        background: isHovered ? 'linear-gradient(180deg, #fef08a 0%, #fef9c3 100%)' : 'linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%)',
+                        border: isHovered 
+                          ? '2.5px solid #facc15' 
+                          : (isFiring ? '2.5px solid #00f2fe' : `2px solid ${isRed ? 'rgba(239, 68, 68, 0.75)' : 'rgba(71, 85, 105, 0.75)'}`),
+                        boxShadow: isHovered 
+                          ? '0 0 26px rgba(250, 204, 21, 1), 0 10px 24px rgba(0,0,0,0.95)' 
+                          : (isFiring ? '0 0 16px #00f2fe' : '0 4px 10px rgba(0,0,0,0.85)'),
+                        transform: isHovered ? 'scale(1.35) translateY(-14px)' : (isFiring ? 'translateY(-4px)' : 'none'),
+                        zIndex: isHovered ? 100 : 5,
                         display: 'flex',
+                        flexDirection: 'column',
                         alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '0.5rem',
-                        color: '#38bdf8',
-                        fontWeight: 900,
-                        fontFamily: 'Orbitron, sans-serif',
-                        transition: 'all 0.15s ease'
+                        justifyContent: 'space-between',
+                        padding: '3px 2px',
+                        transition: 'transform 0.16s cubic-bezier(0.2, 0.8, 0.4, 1.2), box-shadow 0.16s ease, border-color 0.16s ease',
+                        color: isRed ? '#dc2626' : '#0f172a'
                       }}
                     >
-                      SLOT {slotIdx + 1}
+                      <span style={{ fontSize: '0.85rem', fontWeight: 900, lineHeight: 1 }}>{card.symbol}</span>
+                      <span style={{ fontFamily: 'Orbitron', fontSize: '1.3rem', fontWeight: 900, lineHeight: 1 }}>{card.displayVal || card.value}</span>
+                      <span style={{ fontSize: '0.45rem', fontWeight: 900 }}>{isHovered ? '🔄 CAMBIA' : (isFiring ? '⚡' : '🔒')}</span>
                     </div>
                   );
-                }
-
-                const isFiring = bestTrigger?.participatingCards.some(c => c.id === card.id);
-                const cardSuitVal = getCardSuit(card);
-                const isRed = cardSuitVal === 'hearts' || cardSuitVal === 'diamonds';
-
-                return (
-                  <div
-                    key={card.id || slotIdx}
-                    className={isSlotHovered ? 'table-slot-drag-hover' : ''}
-                    onDragOver={(e) => { e.preventDefault(); setHoveredSlotIdx(slotIdx); }}
-                    onDragLeave={() => setHoveredSlotIdx(null)}
-                    onDrop={(e) => handleDropOnSlot(e, slotIdx)}
-                    style={{
-                      width: '46px',
-                      height: '66px',
-                      borderRadius: '6px',
-                      background: 'linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%)',
-                      border: isFiring ? '2.5px solid #00f2fe' : `2px solid ${isRed ? 'rgba(239, 68, 68, 0.75)' : 'rgba(71, 85, 105, 0.75)'}`,
-                      boxShadow: isFiring ? '0 0 16px #00f2fe' : '0 4px 10px rgba(0,0,0,0.85)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '3px 2px',
-                      cursor: 'default',
-                      transform: isFiring ? 'translateY(-4px)' : 'none',
-                      transition: 'all 0.16s ease',
-                      color: isRed ? '#dc2626' : '#0f172a'
-                    }}
-                  >
-                    <span style={{ fontSize: '0.85rem', fontWeight: 900, lineHeight: 1 }}>{card.symbol}</span>
-                    <span style={{ fontFamily: 'Orbitron', fontSize: '1.3rem', fontWeight: 900, lineHeight: 1 }}>{card.displayVal || card.value}</span>
-                    <span style={{ fontSize: '0.45rem', fontWeight: 900 }}>{isFiring ? '⚡' : '🔒'}</span>
-                  </div>
-                );
-              })}
+                })}
+              </div>
             </div>
 
 
-                        {/* FILA 3: ARMI GIOCATORE */}
+
+
+
+                        {/* FILA 3: ARMI GIOCATORE CON CORNICE STILE FELTRO TAVOLO DA POKER */}
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',
               width: 'calc(100% + 40px)',
               margin: '0 -20px 0 -20px',
               position: 'relative',
-              top: '8px',
+              top: '4px',
               zIndex: 5,
               boxSizing: 'border-box'
             }}>
-              {/* Sinistra: Armi 1 e 2 Giocatore (Picche, Cuori) */}
-              <div style={{ display: 'flex', gap: '5px' }}>
-                {resolvedWeapons.slice(0, 2).map((wp, wIdx) => {
-                  const isArmed = bestTrigger?.weapons?.some(w => w.id === wp.id) || bestTrigger?.weaponIdx === wIdx;
-                  const storedBullets = weaponTanks[wp.suit] || 0;
-                  const heatInfo = weaponHeatState[wp.id] || { heat: 0, shotsFired: 0, cooldownTurns: 0 };
-                  const isFrozen = heatInfo.cooldownTurns > 0;
-                  const salvo = Math.min(storedBullets, wp.maxSalvo || 10);
-                  const individualDmg = salvo > 0 ? (wp.currentDamage * salvo) : wp.currentDamage;
+              {/* Sinistra: Cornice Panno Bianco per SLOT ARMI POKER (Picche ♠, Cuori ♥) */}
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                padding: '3px 4px 4px 4px',
+                borderRadius: '8px',
+                border: '1.5px solid rgba(255, 255, 255, 0.75)',
+                background: 'rgba(2, 6, 23, 0.75)',
+                boxShadow: '0 0 8px rgba(255, 255, 255, 0.25), inset 0 0 12px rgba(0, 0, 0, 0.85)',
+                boxSizing: 'border-box'
+              }}>
+                {/* Tratteggio descrittivo stampato sul tavolo */}
+                <div style={{
+                  fontSize: '0.44rem',
+                  fontFamily: 'Orbitron, sans-serif',
+                  fontWeight: 900,
+                  letterSpacing: '1px',
+                  color: '#ffffff',
+                  textShadow: '0 0 6px rgba(255, 255, 255, 0.6)',
+                  textTransform: 'uppercase',
+                  marginBottom: '3px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '3px',
+                  lineHeight: 1
+                }}>
+                  <span style={{ color: '#c084fc' }}>♠</span>
+                  <span style={{ color: '#f43f5e' }}>♥</span>
+                  <span>SLOT POKER</span>
+                </div>
 
-                  return (
-                    <div
-                      key={`p_wp_${wp.id}`}
-                      className={isFrozen ? 'weapon-frozen-card' : ''}
-                      style={{
-                        width: '44px',
-                        height: '62px',
-                        boxSizing: 'border-box',
-                        background: isArmed ? 'rgba(8, 145, 178, 0.65)' : 'rgba(15, 23, 42, 0.95)',
-                        border: isArmed ? '2px solid #ffffff' : `1.5px solid ${wp.themeColor}`,
-                        borderRadius: '6px',
-                        padding: '2px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        boxShadow: isArmed ? `0 0 16px ${wp.themeColor}` : '0 6px 12px rgba(0,0,0,0.9)',
-                        transform: isArmed ? 'translateY(-4px)' : 'none',
-                        transition: 'all 0.16s ease',
-                        position: 'relative'
-                      }}
-                    >
-                      {isFrozen && (
-                        <div className="weapon-ice-overlay">
-                          <span style={{ fontSize: '0.85rem', lineHeight: 1 }}>❄️</span>
-                          <span className="weapon-ice-badge">{heatInfo.cooldownTurns}T</span>
+                <div style={{ display: 'flex', gap: '5px' }}>
+                  {resolvedWeapons.slice(0, 2).map((wp, wIdx) => {
+                    const isArmed = bestTrigger?.weapons?.some(w => w.id === wp.id) || bestTrigger?.weaponIdx === wIdx;
+                    const storedBullets = weaponTanks[wp.suit] || 0;
+                    const heatInfo = weaponHeatState[wp.id] || { heat: 0, shotsFired: 0, cooldownTurns: 0 };
+                    const isFrozen = heatInfo.cooldownTurns > 0;
+                    const salvo = Math.min(storedBullets, wp.maxSalvo || 10);
+                    const individualDmg = salvo > 0 ? (wp.currentDamage * salvo) : wp.currentDamage;
+
+                    return (
+                      <div
+                        key={`p_wp_${wp.id}`}
+                        className={isFrozen ? 'weapon-frozen-card' : ''}
+                        style={{
+                          width: '44px',
+                          height: '62px',
+                          boxSizing: 'border-box',
+                          background: isArmed ? 'rgba(8, 145, 178, 0.65)' : 'rgba(15, 23, 42, 0.95)',
+                          border: isArmed ? '2px solid #ffffff' : `1.5px solid ${wp.themeColor}`,
+                          borderRadius: '6px',
+                          padding: '2px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          boxShadow: isArmed ? `0 0 16px ${wp.themeColor}` : '0 6px 12px rgba(0,0,0,0.9)',
+                          transform: isArmed ? 'translateY(-4px)' : 'none',
+                          transition: 'all 0.16s ease',
+                          position: 'relative'
+                        }}
+                      >
+                        {isFrozen && (
+                          <div className="weapon-ice-overlay">
+                            <span style={{ fontSize: '0.85rem', lineHeight: 1 }}>❄️</span>
+                            <span className="weapon-ice-badge">{heatInfo.cooldownTurns}T</span>
+                          </div>
+                        )}
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', padding: '0 2px', alignItems: 'center', lineHeight: 1 }}>
+                          <span style={{ fontSize: '0.68rem', fontWeight: 900, color: wp.themeColor }}>{wp.suitSymbol}</span>
+                          <span style={{ fontSize: '0.62rem' }}>{wp.icon}</span>
                         </div>
-                      )}
 
-                      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', padding: '0 2px', alignItems: 'center', lineHeight: 1 }}>
-                        <span style={{ fontSize: '0.68rem', fontWeight: 900, color: wp.themeColor }}>{wp.suitSymbol}</span>
-                        <span style={{ fontSize: '0.62rem' }}>{wp.icon}</span>
+                        <span style={{ fontSize: '0.44rem', fontWeight: 900, color: '#fff', textAlign: 'center', lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '40px' }}>
+                          {wp.name}
+                        </span>
+
+                                                <div style={{ fontSize: '0.40rem', color: '#38bdf8', fontWeight: 900, background: 'rgba(0,0,0,0.6)', padding: '1px 2px', borderRadius: '2px', lineHeight: 1 }}>
+                          📦 {storedBullets}/{wp.maxCapacity || wp.maxSalvo || 10}
+                        </div>
+
+
+                        <div style={{
+                          fontSize: '0.42rem',
+                          fontWeight: 900,
+                          color: isArmed ? '#34d399' : wp.themeColor,
+                          background: 'rgba(0,0,0,0.6)',
+                          padding: '1px 2px',
+                          borderRadius: '2px',
+                          lineHeight: 1,
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {isArmed ? `-${individualDmg}` : wp.reqDescription}
+                        </div>
                       </div>
-
-                      <span style={{ fontSize: '0.44rem', fontWeight: 900, color: '#fff', textAlign: 'center', lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '40px' }}>
-                        {wp.name}
-                      </span>
-
-                      <div style={{ fontSize: '0.40rem', color: '#38bdf8', fontWeight: 900, background: 'rgba(0,0,0,0.6)', padding: '1px 2px', borderRadius: '2px', lineHeight: 1 }}>
-                        📦 {storedBullets}/{wp.maxSalvo || 10}
-                      </div>
-
-                      <div style={{
-                        fontSize: '0.42rem',
-                        fontWeight: 900,
-                        color: isArmed ? '#34d399' : wp.themeColor,
-                        background: 'rgba(0,0,0,0.6)',
-                        padding: '1px 2px',
-                        borderRadius: '2px',
-                        lineHeight: 1,
-                        whiteSpace: 'nowrap'
-                      }}>
-                        {isArmed ? `-${individualDmg}` : wp.reqDescription}
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
 
-              {/* Destra: Armi 3 e 4 Giocatore (Quadri, Fiori) */}
-              <div style={{ display: 'flex', gap: '5px' }}>
-                {resolvedWeapons.slice(2, 4).map((wp, subIdx) => {
-                  const wIdx = subIdx + 2;
-                  const isArmed = bestTrigger?.weapons?.some(w => w.id === wp.id) || bestTrigger?.weaponIdx === wIdx;
-                  const storedBullets = weaponTanks[wp.suit] || 0;
-                  const heatInfo = weaponHeatState[wp.id] || { heat: 0, shotsFired: 0, cooldownTurns: 0 };
-                  const isFrozen = heatInfo.cooldownTurns > 0;
-                  const salvo = Math.min(storedBullets, wp.maxSalvo || 10);
-                  const individualDmg = salvo > 0 ? (wp.currentDamage * salvo) : wp.currentDamage;
+              {/* Destra: Cornice Panno Bianco per SLOT ARMI CALCOLO (Quadri ♦, Fiori ♣) */}
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                padding: '3px 4px 4px 4px',
+                borderRadius: '8px',
+                border: '1.5px solid rgba(255, 255, 255, 0.75)',
+                background: 'rgba(2, 6, 23, 0.75)',
+                boxShadow: '0 0 8px rgba(255, 255, 255, 0.25), inset 0 0 12px rgba(0, 0, 0, 0.85)',
+                boxSizing: 'border-box'
+              }}>
+                {/* Tratteggio descrittivo stampato sul tavolo */}
+                <div style={{
+                  fontSize: '0.44rem',
+                  fontFamily: 'Orbitron, sans-serif',
+                  fontWeight: 900,
+                  letterSpacing: '1px',
+                  color: '#ffffff',
+                  textShadow: '0 0 6px rgba(255, 255, 255, 0.6)',
+                  textTransform: 'uppercase',
+                  marginBottom: '3px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '3px',
+                  lineHeight: 1
+                }}>
+                  <span style={{ color: '#00f2fe' }}>♦</span>
+                  <span style={{ color: '#10b981' }}>♣</span>
+                  <span>SLOT CALCOLO</span>
+                </div>
 
-                  return (
-                    <div
-                      key={`p_wp_${wp.id}`}
-                      className={isFrozen ? 'weapon-frozen-card' : ''}
-                      style={{
-                        width: '44px',
-                        height: '62px',
-                        boxSizing: 'border-box',
-                        background: isArmed ? 'rgba(8, 145, 178, 0.65)' : 'rgba(15, 23, 42, 0.95)',
-                        border: isArmed ? '2px solid #ffffff' : `1.5px solid ${wp.themeColor}`,
-                        borderRadius: '6px',
-                        padding: '2px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        boxShadow: isArmed ? `0 0 16px ${wp.themeColor}` : '0 6px 12px rgba(0,0,0,0.9)',
-                        transform: isArmed ? 'translateY(-4px)' : 'none',
-                        transition: 'all 0.16s ease',
-                        position: 'relative'
-                      }}
-                    >
-                      {isFrozen && (
-                        <div className="weapon-ice-overlay">
-                          <span style={{ fontSize: '0.85rem', lineHeight: 1 }}>❄️</span>
-                          <span className="weapon-ice-badge">{heatInfo.cooldownTurns}T</span>
+                <div style={{ display: 'flex', gap: '5px' }}>
+                  {resolvedWeapons.slice(2, 4).map((wp, subIdx) => {
+                    const wIdx = subIdx + 2;
+                    const isArmed = bestTrigger?.weapons?.some(w => w.id === wp.id) || bestTrigger?.weaponIdx === wIdx;
+                    const storedBullets = weaponTanks[wp.suit] || 0;
+                    const heatInfo = weaponHeatState[wp.id] || { heat: 0, shotsFired: 0, cooldownTurns: 0 };
+                    const isFrozen = heatInfo.cooldownTurns > 0;
+                    const salvo = Math.min(storedBullets, wp.maxSalvo || 10);
+                    const individualDmg = salvo > 0 ? (wp.currentDamage * salvo) : wp.currentDamage;
+
+                    return (
+                      <div
+                        key={`p_wp_${wp.id}`}
+                        className={isFrozen ? 'weapon-frozen-card' : ''}
+                        style={{
+                          width: '44px',
+                          height: '62px',
+                          boxSizing: 'border-box',
+                          background: isArmed ? 'rgba(8, 145, 178, 0.65)' : 'rgba(15, 23, 42, 0.95)',
+                          border: isArmed ? '2px solid #ffffff' : `1.5px solid ${wp.themeColor}`,
+                          borderRadius: '6px',
+                          padding: '2px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          boxShadow: isArmed ? `0 0 16px ${wp.themeColor}` : '0 6px 12px rgba(0,0,0,0.9)',
+                          transform: isArmed ? 'translateY(-4px)' : 'none',
+                          transition: 'all 0.16s ease',
+                          position: 'relative'
+                        }}
+                      >
+                        {isFrozen && (
+                          <div className="weapon-ice-overlay">
+                            <span style={{ fontSize: '0.85rem', lineHeight: 1 }}>❄️</span>
+                            <span className="weapon-ice-badge">{heatInfo.cooldownTurns}T</span>
+                          </div>
+                        )}
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', padding: '0 2px', alignItems: 'center', lineHeight: 1 }}>
+                          <span style={{ fontSize: '0.68rem', fontWeight: 900, color: wp.themeColor }}>{wp.suitSymbol}</span>
+                          <span style={{ fontSize: '0.62rem' }}>{wp.icon}</span>
                         </div>
-                      )}
 
-                      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', padding: '0 2px', alignItems: 'center', lineHeight: 1 }}>
-                        <span style={{ fontSize: '0.68rem', fontWeight: 900, color: wp.themeColor }}>{wp.suitSymbol}</span>
-                        <span style={{ fontSize: '0.62rem' }}>{wp.icon}</span>
+                        <span style={{ fontSize: '0.44rem', fontWeight: 900, color: '#fff', textAlign: 'center', lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '40px' }}>
+                          {wp.name}
+                        </span>
+
+                                                <div style={{ fontSize: '0.40rem', color: '#38bdf8', fontWeight: 900, background: 'rgba(0,0,0,0.6)', padding: '1px 2px', borderRadius: '2px', lineHeight: 1 }}>
+                          📦 {storedBullets}/{wp.maxCapacity || wp.maxSalvo || 10}
+                        </div>
+
+
+                        <div style={{
+                          fontSize: '0.42rem',
+                          fontWeight: 900,
+                          color: isArmed ? '#34d399' : wp.themeColor,
+                          background: 'rgba(0,0,0,0.6)',
+                          padding: '1px 2px',
+                          borderRadius: '2px',
+                          lineHeight: 1,
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {isArmed ? `-${individualDmg}` : wp.reqDescription}
+                        </div>
                       </div>
-
-                      <span style={{ fontSize: '0.44rem', fontWeight: 900, color: '#fff', textAlign: 'center', lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '40px' }}>
-                        {wp.name}
-                      </span>
-
-                      <div style={{ fontSize: '0.40rem', color: '#38bdf8', fontWeight: 900, background: 'rgba(0,0,0,0.6)', padding: '1px 2px', borderRadius: '2px', lineHeight: 1 }}>
-                        📦 {storedBullets}/{wp.maxSalvo || 10}
-                      </div>
-
-                      <div style={{
-                        fontSize: '0.42rem',
-                        fontWeight: 900,
-                        color: isArmed ? '#34d399' : wp.themeColor,
-                        background: 'rgba(0,0,0,0.6)',
-                        padding: '1px 2px',
-                        borderRadius: '2px',
-                        lineHeight: 1,
-                        whiteSpace: 'nowrap'
-                      }}>
-                        {isArmed ? `-${individualDmg}` : wp.reqDescription}
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             </div>
+
+
 
 
           </div>
@@ -3059,11 +3223,12 @@ export default function ClassicBattleView({
             </div>
           )}
 
-          <div className="wall-hand-rack player-side">
+                    <div className="wall-hand-rack player-side">
             {(playerHand || []).map((card, idx) => {
-              const isPlacedOnTable = tableSlots.some(s => s && s.id === card?.id);
+              const isPlacedOnTable = tableSlots.some(s => s && s === card);
               const isExchangeSelected = isExchangeMode && selectedExchangeIndices?.includes(idx);
               const isSelected = isExchangeMode ? isExchangeSelected : isPlacedOnTable;
+
 
               const isGolden = Boolean(card?.isGolden || (playerGoldenCardId && card?.id === playerGoldenCardId));
 
@@ -3090,22 +3255,22 @@ export default function ClassicBattleView({
                 currentTut === 'S6' && !isSelectingDiscard && (idx === goldenCardIdx || isGolden) && !isSelected
               );
 
-                            const canDrag = turn === 'player1' && !isSelectingDiscard && !isExchangeMode;
+                                          const canDrag = turn === 'player1' && !isSelectingDiscard && !isExchangeMode && cardsPlayedThisTurn < 3;
+              const isBeingDragged = activeDrag?.handIdx === idx;
 
               return (
                 <div 
                   key={card?.id || idx}
-                  draggable={canDrag}
-                  onDragStart={(e) => handleDragStart(e, idx)}
                   className={`card-unit-station ${suitClass} ${isSelected ? 'is-selected hand-card-placed' : ''}`}
-                  onClick={() => {
-                    if (currentTut === 'S1' && guidedStep === 1) setGuidedStep(2);
-                    if (currentTut === 'S2') markTutDone('S2');
-                    if (currentTut === 'S6' && isGolden) markTutDone('S6');
-                    handleCardClick(idx);
+                  onPointerDown={(e) => handleCardPointerDown(e, idx)}
+                  onClick={() => handleCardClick(idx)}
+                  style={{ 
+                    cursor: canDrag ? 'grab' : 'default',
+                    touchAction: 'none',
+                    opacity: isBeingDragged ? 0.35 : 1
                   }}
-                  style={{ cursor: canDrag ? 'grab' : 'pointer' }}
                 >
+
 
                   {isGuidedCardS1 && (
                     <div className="guided-hand-beacon point-down">
@@ -3135,9 +3300,16 @@ export default function ClassicBattleView({
 
                     <span className="card-suit-label">{card?.symbol}</span>
                     <span className="card-num-3d">{card?.displayVal || card?.value}</span>
-                    <span className="card-effect-tag" style={{ color: isExchangeSelected ? '#facc15' : undefined }}>
-                      {isSelectingDiscard ? '✕ SCARTA' : (isExchangeSelected ? '🔄 CAMBIA' : (isPlacedOnTable ? 'IN BANCO' : suitTag))}
+                                        <span className="card-effect-tag" style={{ color: isExchangeSelected || selectedHandToReplaceIdx === idx ? '#facc15' : undefined }}>
+                      {isSelectingDiscard 
+                        ? '✕ SCARTA' 
+                        : (isExchangeSelected 
+                            ? '🔄 CAMBIA' 
+                            : (selectedHandToReplaceIdx === idx 
+                                ? '⚡ SOSTITUISCI' 
+                                : (isPlacedOnTable ? 'IN BANCO' : suitTag)))}
                     </span>
+
                   </div>
                   <div className="card-pit-base"><div className="card-pit-lens"></div></div>
                 </div>
@@ -3476,25 +3648,34 @@ export default function ClassicBattleView({
                   </div>
                 )}
 
-                <button 
+                                                <button 
                   type="button"
                   className={`tactile-btn-mech tactile-btn-attack ${isFireReady ? 'ready-attack' : ''}`}
                   disabled={isSelectingDiscard || !isFireReady}
                   onClick={handleAttackExecute}
                   style={{ position: 'relative' }}
                 >
-                  {isFireReady ? `ATTACCA (-${bestTrigger.damage} HP)` : (cardsOnTableCount < 2 ? 'CALA CARTE' : 'IN ATTESA INNESCO')}
-
+                  {isFireReady 
+                    ? `ATTACCA (-${bestTrigger.damage} HP)` 
+                    : (cardsPlayedThisTurn === 0 
+                        ? 'CALA CARTE (0/3)' 
+                        : `NESSUN INNESCO (${cardsPlayedThisTurn}/3)`)}
                 </button>
 
                 <button 
                   type="button"
                   className="tactile-btn-mech tactile-btn-pass"
                   disabled={isSelectingDiscard}
-                  onClick={handlePassTurn}
+                  onClick={() => {
+                    if (typeof handlePassTurn === 'function') {
+                      handlePassTurn();
+                    }
+                  }}
                 >
                   PASSA
                 </button>
+
+
               </>
             ) : (
               <>
@@ -3545,7 +3726,7 @@ export default function ClassicBattleView({
               </button>
             </div>
 
-            <div className="hp-prismatic-dock">
+                        <div className="hp-prismatic-dock">
               <div className="hp-segmented-grid"></div>
               <div 
                 className="player-hp-fill-3d"
@@ -3556,6 +3737,36 @@ export default function ClassicBattleView({
         </div>
 
       </div>
+
+      {/* CARTA FLUTTUANTE SOTTO AL DITO/MOUSE DURANTE IL TRASCINAMENTO */}
+      {activeDrag && (
+        <div
+          style={{
+            position: 'fixed',
+            top: activeDrag.y - 48,
+            left: activeDrag.x - 28,
+            width: '56px',
+            height: '80px',
+            pointerEvents: 'none',
+            zIndex: 999999,
+            borderRadius: '8px',
+            background: 'linear-gradient(165deg, rgba(15, 23, 42, 0.98) 0%, rgba(2, 6, 23, 0.99) 100%)',
+            border: '2.5px solid #facc15',
+            boxShadow: '0 0 25px rgba(250, 204, 21, 0.9), 0 12px 28px rgba(0,0,0,0.95)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '4px 3px',
+            transform: 'scale(1.15) rotate(4deg)',
+            color: activeDrag.card?.color || '#ffffff'
+          }}
+        >
+          <span style={{ fontSize: '0.85rem', fontWeight: 900, lineHeight: 1 }}>{activeDrag.card?.symbol}</span>
+          <span style={{ fontFamily: 'Orbitron', fontSize: '1.4rem', fontWeight: 900, lineHeight: 1, color: '#ffffff' }}>{activeDrag.card?.displayVal || activeDrag.card?.value}</span>
+          <span style={{ fontFamily: 'Orbitron', fontSize: '0.45rem', fontWeight: 900, color: '#facc15' }}>TRASCINA</span>
+        </div>
+      )}
     </div>
   );
 }

@@ -37,7 +37,9 @@ import {
 } from './audio';
 import { TerrainVisual, SciFiIcon, ModuleIcon, TacticalVisual, RelicVisual } from './visualAssets';
 import DeepSpaceUniverseCanvas, { SPECIAL_BACKGROUNDS, PLANET_ENVIRONMENTS } from './DeepSpaceUniverseCanvas';
-import ClassicBattleView, { WEAPONS_DATABASE, calculateAiTurnClassic, generateClassicObjectives } from './ClassicBattleView';
+import ClassicBattleView, { calculateAiTurnClassic, generateClassicObjectives } from './ClassicBattleView';
+import { WEAPONS_DATABASE } from './weaponsSystem';
+
 
 import CombatJuiceOverlay, { playSynthesizedOperatorSound, getOperatorMicroShakeClass } from './CombatJuiceOverlay';
 
@@ -10174,13 +10176,23 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
           return 0;
         }
 
-        // L'avversario ha esaurito timer e serbatoio: subisce timeout
+                // L'avversario ha esaurito timer e serbatoio: subisce timeout
         setTimeout(() => {
           if (turn === 'ai' && !winner) {
             triggerAiDamageFx();
             triggerFloatingText(`-5 HP (TIMEOUT NEMICO)`, '#ef4444', 'top-right');
             setAiHp(hp => Math.max(0, hp - 5));
             clearAiTurnTimeouts();
+
+            // Ripristino mano IA prima di cedere il turno
+            const refilledAiOnTimeout = refillHandToTargetSize(aiHandRef.current, aiDeckRef.current, aiDiscardRef.current, 7);
+            aiHandRef.current = refilledAiOnTimeout.newHand;
+            aiDeckRef.current = refilledAiOnTimeout.newDeck;
+            aiDiscardRef.current = refilledAiOnTimeout.newDiscard;
+            setAiHand(refilledAiOnTimeout.newHand);
+            setAiDeck(refilledAiOnTimeout.newDeck);
+            setAiDiscard(refilledAiOnTimeout.newDiscard);
+
             setAiActionMessage("Tempo nemico esaurito (-5 HP). Turno ceduto.");
             setTimeout(() => {
               setAiActionMessage("");
@@ -10188,6 +10200,7 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
             }, 800);
           }
         }, 0);
+
 
         return 0;
       });
@@ -11540,8 +11553,17 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
 
       triggerTurnBanner(true);
 
-      } else if (turn === 'ai' && prevTurnRef.current !== 'ai') {
+            } else if (turn === 'ai' && prevTurnRef.current !== 'ai') {
       prevTurnRef.current = 'ai';
+
+      // RIPRISTINO PREVENTIVO MANO IA A 7 CARTE
+      const refilledAiAtStart = refillHandToTargetSize(aiHandRef.current, aiDeckRef.current, aiDiscardRef.current, 7);
+      aiHandRef.current = refilledAiAtStart.newHand;
+      aiDeckRef.current = refilledAiAtStart.newDeck;
+      aiDiscardRef.current = refilledAiAtStart.newDiscard;
+      setAiHand(refilledAiAtStart.newHand);
+      setAiDeck(refilledAiAtStart.newDeck);
+      setAiDiscard(refilledAiAtStart.newDiscard);
 
       // Applica eventuale limitazione mano da sabotaggio giocatore (5 carte)
       if (aiHandLimitNextTurn !== null) {
@@ -11549,6 +11571,7 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
         setAiHandLimitNextTurn(null);
         triggerFloatingText("MANO NEMICA RIDOTTA (5 CARTE)", "#8b5cf6", "top-right");
       }
+
 
 
       if (isGoldenCardAllowed) {
@@ -13134,7 +13157,7 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
     setAiCardStates(Array(7).fill(''));
 
     safeAiTimeout(() => {
-      // 1. L'IA cala fino a 3 carte dalla mano sul banco comune
+            // 1. L'IA cala fino a 3 carte dalla mano sul banco comune (riempie vuoti o sostituisce la peggiore)
       let curAiHand = [...aiHandRef.current];
       let curTable = [...tableSlotsRef.current];
       let overwrittenCards = [];
@@ -13143,24 +13166,32 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
       for (let c = 0; c < cardsToPlay; c++) {
         if (curAiHand.length === 0) break;
         const cardToPlace = curAiHand.shift();
+
+        // Cerca prima se esiste uno slot vuoto
         const emptyIdx = curTable.findIndex(s => s === null);
         if (emptyIdx !== -1) {
           curTable[emptyIdx] = cardToPlace;
         } else {
-          // Se il banco è pieno (5/5), salva la vecchia carta negli scarti prima di sovrascrivere
-          if (curTable[c % 5] !== null) {
-            overwrittenCards.push(curTable[c % 5]);
+          // Banco pieno (5/5): trova lo slot con la carta dal valore più basso da sacrificare
+          let replaceIdx = 0;
+          let minVal = 99;
+          curTable.forEach((slotCard, idx) => {
+            const val = Number(slotCard?.value) || 0;
+            if (val < minVal) {
+              minVal = val;
+              replaceIdx = idx;
+            }
+          });
+
+          // Sposta la carta scartata nella lista per gli scarti e piazza la nuova
+          if (curTable[replaceIdx] !== null) {
+            overwrittenCards.push(curTable[replaceIdx]);
           }
-          curTable[c % 5] = cardToPlace;
-        }
-        const aiSuit = getCardSuit(cardToPlace);
-        const aiVal = Number(cardToPlace?.value) || 0;
-        if (aiSuit && typeof setAiWeaponTanks === 'function') {
-          setAiWeaponTanks(prev => ({ ...prev, [aiSuit]: (prev[aiSuit] || 0) + aiVal }));
+          curTable[replaceIdx] = cardToPlace;
         }
       }
 
-      // Se ci sono state sostituzioni su banco pieno, manda le vecchie carte agli scarti
+      // Le carte sostituite sul banco vanno negli scarti dell'avversario
       if (overwrittenCards.length > 0) {
         const nextDisc = [...aiDiscardRef.current, ...overwrittenCards];
         aiDiscardRef.current = nextDisc;
@@ -13171,6 +13202,7 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
       tableSlotsRef.current = curTable;
       setAiHand(curAiHand);
       aiHandRef.current = curAiHand;
+
 
       const nextStates = Array(7).fill('');
       nextStates[0] = 'ai-card-selected';
@@ -13286,17 +13318,30 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
           aiDiscardRef.current = updatedAiDiscard;
           setAiDiscard(updatedAiDiscard);
 
-          // Consuma munizioni dell'IA
+                              // Ricarica con le carte usate e consuma munizioni dell'IA in base all'arma specifica
           setAiWeaponTanks(prev => {
             const next = { ...prev };
             removedCards.forEach(c => {
               const s = getCardSuit(c);
+              const val = Number(c?.value) || 0;
               if (s && next[s] !== undefined) {
-                next[s] = Math.max(0, next[s] - 10);
+                const wp = WEAPONS_DATABASE.find(w => w.suit === s);
+                const cap = wp?.maxCapacity || wp?.maxSalvo || 10;
+                next[s] = Math.min(cap, next[s] + val);
+              }
+            });
+            removedCards.forEach(c => {
+              const s = getCardSuit(c);
+              const wp = WEAPONS_DATABASE.find(w => w.suit === s);
+              if (wp && next[s] !== undefined) {
+                const salvo = wp.maxSalvo || wp.maxCapacity || 10;
+                next[s] = Math.max(0, next[s] - salvo);
               }
             });
             return next;
           });
+
+
 
           const refilled = refillHandToTargetSize(aiHandRef.current, aiDeckRef.current, updatedAiDiscard, 7);
           setAiHand(refilled.newHand);
@@ -13430,11 +13475,12 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
     }
   };
 
-      // TIMER GIOCATORE CON CONSUMO SCANNER E SOCCORSO EMERGENZA
+            // TIMER GIOCATORE CON CONSUMO SCANNER E SOCCORSO EMERGENZA (CONGELATO DURANTE IL FACE-OFF)
   useEffect(() => {
-    if (winner || showReviveModal || turn !== 'player1' || activeDiscoveryTutorial) return;
+    if (winner || showReviveModal || turn !== 'player1' || activeDiscoveryTutorial || showFaceOff) return;
 
     // Se il pilota attivo rimuove il timer (Re del Ghiaccio), il tempo non scorre
+
     const pCheck = getPilotDamageMultiplier(effectivePlayerPilotId, effectivePlayerPilotLvl);
     if (pCheck.isTimerRemoved) return;
 
@@ -13522,8 +13568,9 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
       });
     }, 1000);
 
-    return () => clearInterval(interval);
-  }, [turn, winner, showReviveModal, getBaseTime, isEclipseStormActive, activeDiscoveryTutorial, checkAndTriggerTerrainCards]);
+        return () => clearInterval(interval);
+  }, [turn, winner, showReviveModal, getBaseTime, isEclipseStormActive, activeDiscoveryTutorial, showFaceOff, checkAndTriggerTerrainCards]);
+
 
 
    
@@ -13665,7 +13712,8 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
       try { playSound('card_slide'); } catch (_) {}
       let nextHand = [...playerHand];
       const sacrificed = nextHand.splice(cardIndex, 1)[0];
-      let nextDiscard = [...playerDiscard];
+      let nextDiscard = [...playerDiscardRef.current];
+
       if (sacrificed && !sacrificed.isJoker && sacrificed.suit !== 'joker') {
         nextDiscard.push(sacrificed);
       }
@@ -13680,14 +13728,20 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
           const discardVal = Number(sacrificed?.value) || 1;
           const discardSuit = getCardSuit(sacrificed);
 
-          // 1. RICARICA BALISTICA: il valore della carta scartata alimenta il serbatoio dell'arma di quel seme
+                    // 1. RICARICA BALISTICA: alimenta il serbatoio dell'arma rispettando la capienza univoca della carta arma
           if (discardSuit && ['spades', 'hearts', 'diamonds', 'clubs'].includes(discardSuit)) {
-            setWeaponTanks(prev => ({
-              ...prev,
-              [discardSuit]: (prev[discardSuit] || 0) + discardVal
-            }));
+            setWeaponTanks(prev => {
+              const wp = WEAPONS_DATABASE.find(w => w.suit === discardSuit);
+              const cap = wp?.maxCapacity || wp?.maxSalvo || 10;
+              const cur = prev[discardSuit] || 0;
+              return {
+                ...prev,
+                [discardSuit]: Math.min(cap, cur + discardVal)
+              };
+            });
             triggerFloatingText(`+${discardVal} 🎯 TANK ${discardSuit.toUpperCase()}`, '#facc15', 'bottom-left');
           }
+
 
           let enemyKilledByDiscard = false;
 
@@ -15369,23 +15423,34 @@ const accumulateAbilityDamage = useCallback((amountOrHits, isPlayer = true, forc
 
       onScoreSuccess(true, finalDamage);
 
-            // FASE DI FINE TURNO CLASSICA: ATTACCA E PASSA SUBITO ALL'AVVERSARIO
-      const sizeTrait = playerTraits.find(t => t.type === 'hand_size_bonus');
-      const targetSize = (sizeTrait ? (sizeTrait.size || 8) : 7) + riftExtraDraw;
-      const refilled = refillHandToTargetSize(playerHandRef.current, playerDeckRef.current, updatedDiscard, targetSize);
-      playerHandRef.current = refilled.newHand;
-      playerDeckRef.current = refilled.newDeck;
-      playerDiscardRef.current = refilled.newDiscard;
-      setPlayerHand(refilled.newHand);
-      setPlayerDeck(refilled.newDeck);
-      setPlayerDiscard(refilled.newDiscard);
+                  // Se il nemico è vivo e abbiamo carte in mano, apre la fase di SCARICA / SCARTO
+      if (nextAiHp > 0 && playerHandRef.current.length > 0) {
+        setIsSelectingDiscard(true);
+        triggerPopup(`ATTACCO A SEGNO (-${finalDamage} HP)!\n⚡ SCARICA: tocca 1 carta in mano per scartarla e ricaricare il serbatoio!`);
+      } else {
+        // Nemico sconfitto o mano vuota: rifilla e passa il turno
+        const sizeTrait = playerTraits.find(t => t.type === 'hand_size_bonus');
+        const targetSize = (sizeTrait ? (sizeTrait.size || 8) : 7) + riftExtraDraw;
+        const refilled = refillHandToTargetSize(playerHandRef.current, playerDeckRef.current, updatedDiscard, targetSize);
+        playerHandRef.current = refilled.newHand;
+        playerDeckRef.current = refilled.newDeck;
+        playerDiscardRef.current = refilled.newDiscard;
+        setPlayerHand(refilled.newHand);
+        setPlayerDeck(refilled.newDeck);
+        setPlayerDiscard(refilled.newDiscard);
 
-      setIsSelectingDiscard(false);
+        setIsSelectingDiscard(false);
 
-      if (nextAiHp > 0) {
-        // Passa immediatamente il turno al nemico: inizia il turno di riposo
-        setTurn('ai');
+        if (checkDeckOutCondition(refilled.newHand, refilled.newDeck, refilled.newDiscard, aiHandRef.current, aiDeckRef.current, aiDiscardRef.current)) {
+          return;
+        }
+
+        if (nextAiHp > 0) {
+          setTurn('ai');
+        }
       }
+
+
 
 
 
@@ -15784,9 +15849,13 @@ const playExpression = async (payload) => {
       )}
 
 
-      {/* OVERLAY INTRODUTTIVO 3D: FACE-OFF PILOTI CON RILIEVO ELEMENTALE */}
+            {/* OVERLAY INTRODUTTIVO 3D: FACE-OFF PILOTI CON RILIEVO ELEMENTALE */}
       {showFaceOff && (
         <div
+          onClick={() => {
+            try { playSound('click'); } catch (_) {}
+            setShowFaceOff(false);
+          }}
           style={{
             position: 'fixed',
             inset: 0,
@@ -15797,10 +15866,11 @@ const playExpression = async (payload) => {
             justifyContent: 'center',
             zIndex: 29000,
             animation: 'spotlightPop 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-            pointerEvents: 'none',
+            cursor: 'pointer',
             padding: '1rem'
           }}
         >
+
           <div style={{ fontSize: '0.68rem', color: '#fde047', fontWeight: 900, letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '0.6rem' }}>
             CONFRONTO ELEMENTALE PILOTI
           </div>
@@ -15901,12 +15971,33 @@ const playExpression = async (payload) => {
             >
               {pilotDominance.label}
             </div>
-            <div style={{ fontSize: '0.68rem', color: '#cbd5e1', marginTop: '2px', fontWeight: 'bold' }}>
+                        <div style={{ fontSize: '0.68rem', color: '#cbd5e1', marginTop: '2px', fontWeight: 'bold' }}>
               {pilotDominance.subLabel}
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              try { playSound('click'); } catch (_) {}
+              setShowFaceOff(false);
+            }}
+            className="cyber-btn cyber-btn-primary"
+            style={{
+              marginTop: '1rem',
+              padding: '6px 18px',
+              fontSize: '0.72rem',
+              fontWeight: 900,
+              letterSpacing: '1px',
+              boxShadow: '0 0 16px rgba(0, 242, 254, 0.6)'
+            }}
+          >
+            SALTA (O TOCCA OVUNQUE) ➔
+          </button>
         </div>
       )}
+
 
 
            {turnBanner && (
@@ -16259,13 +16350,16 @@ const playExpression = async (payload) => {
           selectedAbility={effectivePlayerAbilityId}
           abilities={abilities}
           level={level}
-                              tableSlots={tableSlots}
+                                        tableSlots={tableSlots}
           setTableSlots={setTableSlots}
           playerHand={playerHand}
           setPlayerHand={setPlayerHand}
           playerDeck={playerDeck}
           playerDiscard={playerDiscard}
+          setPlayerDiscard={setPlayerDiscard}
           playerTerrainSlots={playerTerrainSlots}
+          
+
 
               handleRearmTerrainSlot={handleRearmTerrainSlot}
     onAttack={handleClassicAttack}
